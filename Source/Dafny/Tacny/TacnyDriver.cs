@@ -75,7 +75,9 @@ namespace Microsoft.Dafny.Tacny
       GetTimer().Restart();
       _driver = new TacnyDriver(program);
       _errorReporterDelegate = erd;
-      Type.BackupScopes();
+      // backup datatype info, as this will be reset by the internal resoling process in tacny.
+      // this contains datatype obj instance for comparing types
+      Type.BackupScopes(); 
       var result = _driver.InterpretAndUnfoldTactic(target, r);
       Type.RestoreScopes();
       var p = new Printer(Console.Out);
@@ -135,8 +137,6 @@ namespace Microsoft.Dafny.Tacny
     private void InterpertBlockStmt(BlockStmt body)
     {
       Contract.Requires(Tcce.NonNull(body));
-
-      // BaseSearchStrategy.ResetProofList();
       _frame.Push(new Dictionary<IVariable, Type>());
       foreach (var stmt in body.Body) {
         if (stmt is VarDeclStmt) {
@@ -153,7 +153,6 @@ namespace Microsoft.Dafny.Tacny
         } else if (stmt is IfStmt) {
           var ifStmt = stmt as IfStmt;
           InterpretIfStmt(ifStmt);
-
         } else if (stmt is WhileStmt) {
           var whileStmt = stmt as WhileStmt;
           InterpretWhileStmt(whileStmt);
@@ -163,6 +162,10 @@ namespace Microsoft.Dafny.Tacny
           }
         } else if (stmt is InlineTacticBlockStmt) {
           UndfoldTacticCall(stmt);
+        } else if (stmt is MatchStmt) {
+        } else if (stmt is ForallStmt) {       
+        } else if (stmt is AssertStmt) {
+        } else if (stmt is CalcStmt) {
         } else if (stmt is BlockStmt) {
           InterpertBlockStmt((stmt as BlockStmt));
         }
