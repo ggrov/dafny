@@ -133,12 +133,10 @@ namespace Microsoft.Dafny.Tacny
       return method;
     }
 
-    // Find tactic application and resolve it
-    private void InterpertBlockStmt(BlockStmt body)
+    private void InterpertBlockStmt(List<Statement> body)
     {
-      Contract.Requires(Tcce.NonNull(body));
       _frame.Push(new Dictionary<IVariable, Type>());
-      foreach (var stmt in body.Body) {
+      foreach (var stmt in body) {
         if (stmt is VarDeclStmt) {
           var vds = stmt as VarDeclStmt;
           // register local variable declarations
@@ -163,14 +161,25 @@ namespace Microsoft.Dafny.Tacny
         } else if (stmt is InlineTacticBlockStmt) {
           UndfoldTacticCall(stmt);
         } else if (stmt is MatchStmt) {
-        } else if (stmt is ForallStmt) {       
+          foreach (var caseStmt in (stmt as MatchStmt).Cases) {
+            InterpretCaseStmt(caseStmt);            
+          }
+        } else if (stmt is ForallStmt) {
         } else if (stmt is AssertStmt) {
+          if ((stmt as AssertStmt).Proof != null) {
+          }
         } else if (stmt is CalcStmt) {
         } else if (stmt is BlockStmt) {
           InterpertBlockStmt((stmt as BlockStmt));
         }
       }
       _frame.Pop();
+    }
+    // Find tactic application and resolve it
+    private void InterpertBlockStmt(BlockStmt body)
+    {
+      Contract.Requires(Tcce.NonNull(body));
+      InterpertBlockStmt(body.Body);
     }
 
     private void UndfoldTacticCall(Statement stmt)
@@ -220,6 +229,20 @@ namespace Microsoft.Dafny.Tacny
       } else if (ifStmt.Els is IfStmt) {
         InterpretIfStmt((IfStmt) ifStmt.Els);
       }
+    }
+
+    private void InterpretCaseStmt(MatchCaseStmt stmt)
+    {
+      _frame.Push(new Dictionary<IVariable, Type>());
+      foreach (var var in stmt.Ctor.Formals) {
+        try {
+          _frame.Peek().Add(var, var.Type);
+        } catch (Exception e) {
+          Console.Out.WriteLine(e.Message);
+        }
+      }
+      InterpertBlockStmt(stmt.Body);
+      _frame.Pop();
     }
 
     private static Dictionary<IVariable, Type> StackToDict(Stack<Dictionary<IVariable, Type>> stack)

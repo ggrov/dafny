@@ -1,5 +1,5 @@
 ﻿#define _TACTIC_DEBUG_L1
-//#define _TACTIC_DEBUG_L2
+///#define _TACTIC_DEBUG_L2
 
 
 using System;
@@ -91,7 +91,7 @@ namespace Microsoft.Dafny.Tacny {
       var body = member?.Body;
 
       foreach(var kvp in code) {
-        body = InsertCodeInternal(body, kvp.Value, kvp.Key);
+        InsertCodeInternal(body.Body, kvp.Value, kvp.Key);
       }
 
       //var r = new Resolver(prog);
@@ -99,20 +99,23 @@ namespace Microsoft.Dafny.Tacny {
       return body;
     }
 
-    private static BlockStmt InsertCodeInternal(BlockStmt body, List<Statement> code, Statement tacticCall) {
+    private static void InsertCodeInternal(List<Statement> body, List<Statement> code, Statement tacticCall) {
       Contract.Requires<ArgumentNullException>(body != null, "body ");
       Contract.Requires<ArgumentNullException>(tacticCall != null, "'tacticCall");
 
-      for(var i = 0; i < body.Body.Count; i++) {
-        var stmt = body.Body[i];
-        if(stmt is UpdateStmt || stmt is InlineTacticBlockStmt) {
+      for(var i = 0; i < body.Count; i++) {
+        var stmt = body[i];
+        if ((stmt as AssertStmt)?.Proof != null) {
+          //TODO: for subst stmt in assertion
+        } else if(stmt is UpdateStmt || stmt is InlineTacticBlockStmt) {
           // compare tokens
           if(Compare(tacticCall.Tok, stmt.Tok)) {
-            body.Body.RemoveAt(i);
-            body.Body.InsertRange(i, code);
-            return body;
+            body.RemoveAt(i);
+            body.InsertRange(i, code);
+            return;
           }
         } else if(stmt is WhileStmt) {
+          /*
           var whileStmt = stmt as WhileStmt;
           for(var j = 0; j < whileStmt.TInvariants.Count; j++) {
             var item = whileStmt.TInvariants[j];
@@ -129,14 +132,21 @@ namespace Microsoft.Dafny.Tacny {
             }
           }
           ((WhileStmt)stmt).Body = InsertCodeInternal(((WhileStmt)stmt).Body, code, tacticCall);
+          */
         } else if(stmt is IfStmt) { //InsertCodeIfStmt
         } else if(stmt is MatchStmt) {
-          //TODO:
+          foreach (var caseStmt in (stmt as MatchStmt).Cases) {
+            InsertCodeInternal(caseStmt.Body, code, tacticCall);
+          }
+          
         } else if(stmt is CalcStmt) {
           //TODO:
+        } else if (stmt is BlockStmt) {
+          InsertCodeInternal((stmt as BlockStmt).Body, code, tacticCall);
+
         }
       }
-      return body;
+      return;
     }
     /*
         private static IfStmt InsertCodeIfStmt(IfStmt stmt, List<Statement> code, UpdateStmt tacticCall) {
@@ -296,6 +306,8 @@ namespace Microsoft.Dafny.Tacny {
         return prog;
     }
 
+
+    private static int _verificationCount = 0;
     public static bool VerifyResolvedProg(ProofState state, Program program, ErrorReporterDelegate er) {
       Contract.Requires<ArgumentNullException>(program != null);
       
@@ -305,8 +317,10 @@ namespace Microsoft.Dafny.Tacny {
             printer.PrintProgram(program, true);
             Console.WriteLine("\n*********************Prog END*****************");
      #endif
-      
-      
+
+      _verificationCount++;
+      Console.WriteLine("Verfication Count: " + _verificationCount);
+
       var boogieProg = Translator.Translate(program, program.reporter, null);
 
       foreach(var prog in boogieProg) {
@@ -316,11 +330,16 @@ namespace Microsoft.Dafny.Tacny {
           new List<string> { program.Name }, program.Name, er,
           out stats, out errorList, program);
         if(errorList.Count != 0) {
-          state.GetErrHandler().ErrorList = errorList;
+          foreach (var err in errorList) {
+            // exists an error byond the current tactic, so the current tactic goes through
+            if (err.Tok.pos > state.TopLevelTacApp.Tok.pos) {
+              state.GetErrHandler().ErrorList = errorList;
+              return true;
+            }
+          }
           return false;
         }
       }
-
       return true;
     }
 

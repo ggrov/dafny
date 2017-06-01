@@ -232,8 +232,11 @@ namespace Microsoft.Dafny.Tacny
       yield return state.Copy();
     }
 
+    private static int _branchCount = 0;
     public static VerifyResult VerifyState(ProofState state)
     {
+      _branchCount++;
+      Console.WriteLine("Branch Count: " + _branchCount);
 
       if (state.IsTimeOut()) {
         state.GetErrHandler().ErrType = TacticBasicErr.ErrorType.Timeout;
@@ -392,6 +395,8 @@ namespace Microsoft.Dafny.Tacny
           } else {
             s0 = rootState;
           }
+          s0.ReportTacticError(s0.TopLevelTacApp.Tok, 
+            "No solution is found. \n The error message from the last failed branch: ");
           var errs = CompoundErrorInformation.GenerateErrorInfoList(s0);
           if (errDelegate != null) {
             lock (errDelegate) {
