@@ -15,6 +15,7 @@ namespace Microsoft.Dafny.Tacny.Language
     public new bool IsEvaluated => false;
     //the match case stmt with assume false for each case
     private MatchStmt _matchStmt;
+    private List<string> _nameVars;
 
 
     public override bool MatchStmt(Statement stmt, ProofState state) {
@@ -81,8 +82,6 @@ namespace Microsoft.Dafny.Tacny.Language
       else
         caseVar = guard.E as NameSegment;
 
-      //TODO: need to check the datatype of caseGuard, 
-      // also need to consider the case that caseVar is a tac var
       var srcVar = SimpExpr.SimpTacticExpr(state, caseVar) as NameSegment;
       if (srcVar == null) {
         state.ReportTacticError(statement.Tok, Printer.ExprToString(caseVar) + " is not a valid variable.");
@@ -91,11 +90,19 @@ namespace Microsoft.Dafny.Tacny.Language
 
       var datatype = state.GetDafnyVarType(srcVar.Name).AsDatatype;
       if (datatype == null) {
-        state.ReportTacticError(statement.Tok, Printer.ExprToString(caseVar) + " is not an inductive dataype variable.");
+        state.ReportTacticError(statement.Tok, Printer.ExprToString(caseVar) + " is not an inductive datatype variable.");
         yield break;
       }
 
-
+      if (statement.Attributes != null && statement.Attributes.Name.Equals("vars")) {
+        _nameVars = new List<string>();
+        var attrs = statement.Attributes.Args;
+        foreach (var attr in attrs) {
+          var segment = attr as NameSegment;
+          if(segment != null && !state.ContainDafnyVar(segment))
+            _nameVars.Add(segment.Name);
+        }
+      }
       //generate a test program to check which cases need to apply tacny
       bool[] ctorFlags;
       InitCtorFlags(datatype, out ctorFlags);
@@ -122,7 +129,6 @@ namespace Microsoft.Dafny.Tacny.Language
       state.AddNewFrame(matchCtrl);
 
       //push a frame for the first case
-      //TODO: add case variable to frame, so that variable () can refer to it
       var caseCtrl = new DefaultTacticFrameCtrl();
       caseCtrl.InitBasicFrameCtrl(stmt.Body.Body, state.IsCurFramePartial(), null);
       state.AddNewFrame(caseCtrl);
@@ -137,7 +143,7 @@ namespace Microsoft.Dafny.Tacny.Language
     }
 
 
-    private static void InitCtorFlags(DatatypeDecl datatype, out bool[] flags, bool value = false) {
+    private void InitCtorFlags(DatatypeDecl datatype, out bool[] flags, bool value = false) {
       flags = new bool[datatype.Ctors.Count];
       for (int i = 0; i < flags.Length; i++) {
         flags[i] = value;
@@ -215,10 +221,13 @@ namespace Microsoft.Dafny.Tacny.Language
 
     private CasePattern GenerateCasePattern(int line, Formal formal) {
       Contract.Requires(formal != null);
-      /*      var name = PopCaseName();
-            if (name == null) name = formal.Name; 
-       */
-      formal = new Formal(formal.tok, formal.Name, formal.Type, formal.InParam, formal.IsGhost);
+      var name = formal.Name;
+      if (_nameVars != null && _nameVars.Count != 0) {
+        name = _nameVars[0];
+        _nameVars.Remove(_nameVars[0]);
+      }
+
+      formal = new Formal(formal.tok, name, formal.Type, formal.InParam, formal.IsGhost);
       CasePattern cp = new CasePattern(new Token(line, 0) { val = formal.Name },
         new BoundVar(new Token(line, 0) { val = formal.Name }, formal.Name, new InferredTypeProxy()));
       return cp;
