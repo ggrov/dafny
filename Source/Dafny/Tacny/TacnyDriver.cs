@@ -167,6 +167,7 @@ namespace Microsoft.Dafny.Tacny
         } else if (stmt is ForallStmt) {
         } else if (stmt is AssertStmt) {
           if ((stmt as AssertStmt).Proof != null) {
+            InterpretAssertStmt(stmt as AssertStmt);
           }
         } else if (stmt is CalcStmt) {
         } else if (stmt is BlockStmt) {
@@ -242,6 +243,13 @@ namespace Microsoft.Dafny.Tacny
         }
       }
       InterpertBlockStmt(stmt.Body);
+      _frame.Pop();
+    }
+
+    private void InterpretAssertStmt(AssertStmt stmt)
+    {
+      _frame.Push(new Dictionary<IVariable, Type>());
+      InterpertBlockStmt(stmt.Proof);
       _frame.Pop();
     }
 

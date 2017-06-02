@@ -94,8 +94,6 @@ namespace Microsoft.Dafny.Tacny {
         InsertCodeInternal(body.Body, kvp.Value, kvp.Key);
       }
 
-      //var r = new Resolver(prog);
-      //r.ResolveProgram(prog);
       return body;
     }
 
@@ -106,7 +104,7 @@ namespace Microsoft.Dafny.Tacny {
       for(var i = 0; i < body.Count; i++) {
         var stmt = body[i];
         if ((stmt as AssertStmt)?.Proof != null) {
-          //TODO: for subst stmt in assertion
+          InsertCodeInternal((stmt as AssertStmt).Proof.Body, code, tacticCall);
         } else if(stmt is UpdateStmt || stmt is InlineTacticBlockStmt) {
           // compare tokens
           if(Compare(tacticCall.Tok, stmt.Tok)) {
