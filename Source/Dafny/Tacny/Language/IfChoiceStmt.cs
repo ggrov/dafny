@@ -89,7 +89,7 @@ namespace Microsoft.Dafny.Tacny.Language{
             counter++;
             var state = state0.Copy();
             var ifChoice = this.Copy();
-            ifChoice.InitBasicFrameCtrl(item.Item2, partial, null);
+            ifChoice.InitBasicFrameCtrl(item.Item2, partial, null, VerifyN);
             state.AddNewFrame(ifChoice);
 
             yield return state;
@@ -104,7 +104,7 @@ namespace Microsoft.Dafny.Tacny.Language{
               counter++;
               var state = state0.Copy();
               var ifChoice = this.Copy();
-              ifChoice.InitBasicFrameCtrl(item.Item2, partial, null);
+              ifChoice.InitBasicFrameCtrl(item.Item2, partial, null, VerifyN);
               state.AddNewFrame(ifChoice);
               yield return state;
             }

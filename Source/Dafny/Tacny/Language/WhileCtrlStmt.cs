@@ -45,12 +45,12 @@ namespace Microsoft.Dafny.Tacny.Language {
           if ((bool)(tryEval as LiteralExpr).Value) {
             // insert the control frame
             var dummyBody = new List<Statement> {whileStmt};
-            whileCtrl.InitBasicFrameCtrl(dummyBody, true, null);
+            whileCtrl.InitBasicFrameCtrl(dummyBody, true, null, VerifyN);
             state.AddNewFrame(whileCtrl);
 
             //insert the body frame
             var bodyFrame = new DefaultTacticFrameCtrl();
-            bodyFrame.InitBasicFrameCtrl(whileCtrl._body, whileCtrl.IsPartial, null);
+            bodyFrame.InitBasicFrameCtrl(whileCtrl._body, whileCtrl.IsPartial, null, VerifyN);
             state.AddNewFrame(bodyFrame);
           }
 
@@ -71,7 +71,7 @@ namespace Microsoft.Dafny.Tacny.Language {
       if(literalExpr != null && (bool)literalExpr.Value){
         //insert the body frame
         var bodyFrame = new DefaultTacticFrameCtrl();
-        bodyFrame.InitBasicFrameCtrl(_body, state.IsCurFramePartial(), null);
+        bodyFrame.InitBasicFrameCtrl(_body, state.IsCurFramePartial(), null, VerifyN);
         state.AddNewFrame(bodyFrame);
       } else {
         state.NeedVerify = true;

@@ -31,7 +31,7 @@ namespace Microsoft.Dafny.Tacny.Language
         if (isFresh) {
           state.AddInlineTactic(inline.name, inline);
           var frameCtrl = new DefaultTacticFrameCtrl();
-          frameCtrl.InitBasicFrameCtrl(inline.Body.Body, state.IsCurFramePartial(), null);
+          frameCtrl.InitBasicFrameCtrl(inline.Body.Body, state.IsCurFramePartial(), null, VerifyN);
           state.AddNewFrame(frameCtrl);
           yield return state;
         } else {
@@ -43,7 +43,7 @@ namespace Microsoft.Dafny.Tacny.Language
         if (aps.Args == null || aps.Args.Count == 0) {
           var inline = state.GetInlineTactic(Util.GetSignature(aps));
           var frameCtrl = new DefaultTacticFrameCtrl();
-          frameCtrl.InitBasicFrameCtrl(inline.Body.Body, state.IsCurFramePartial(), null);
+          frameCtrl.InitBasicFrameCtrl(inline.Body.Body, state.IsCurFramePartial(), null, VerifyN);
           state.AddNewFrame(frameCtrl);
           yield return state;
         } else {

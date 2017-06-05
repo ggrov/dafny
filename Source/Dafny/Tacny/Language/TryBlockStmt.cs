@@ -18,7 +18,7 @@ namespace Microsoft.Dafny.Tacny.Language {
       if(tryBlockStmt != null) {
         _stmt = tryBlockStmt;
         _oriState = state0;
-        this.InitBasicFrameCtrl(tryBlockStmt.Body.Body, true, null);
+        this.InitBasicFrameCtrl(tryBlockStmt.Body.Body, true, null, VerifyN);
 
         var state = state0.Copy();
         state.AddNewFrame(this);
@@ -30,7 +30,7 @@ namespace Microsoft.Dafny.Tacny.Language {
     {
       if (_stmt.Catch != null) {
         var frame = new DefaultTacticFrameCtrl();
-        frame.InitBasicFrameCtrl(_stmt.Catch.Body, true, null);
+        frame.InitBasicFrameCtrl(_stmt.Catch.Body, true, null, VerifyN);
         _oriState.AddNewFrame(frame);
       } 
       yield return _oriState;

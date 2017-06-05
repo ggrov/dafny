@@ -14,7 +14,7 @@ namespace Microsoft.Dafny.Tacny.Language {
       var blockStmt = statement as Dafny.BlockStmt;
       if(blockStmt != null) {
         var frameCtrl = new DefaultTacticFrameCtrl();
-        frameCtrl.InitBasicFrameCtrl(blockStmt.Body, true, null);
+        frameCtrl.InitBasicFrameCtrl(blockStmt.Body, true, null, VerifyN);
         state.AddNewFrame(frameCtrl);
         yield return state;
       }

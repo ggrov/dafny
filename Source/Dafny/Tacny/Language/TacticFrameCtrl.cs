@@ -14,6 +14,7 @@ namespace Microsoft.Dafny.Tacny.Language{
     public bool IsEvaluated => _bodyCounter >= Body.Count;
 
     public bool IsPartial;
+    public int VerifyN = 1;
     public int OriginalBk = -1;
     public int Backtrack;
     public int TimeStamp = 0;
@@ -51,6 +52,19 @@ namespace Microsoft.Dafny.Tacny.Language{
         case "partial":
           IsPartial = true;
           break;
+        case "verify":
+          arg = attr.Args.FirstOrDefault();
+          if (arg != null) {
+            try {
+              literalExpr = arg as LiteralExpr;
+              if (literalExpr != null) {
+                var input = Int32.Parse(literalExpr.Value.ToString());
+                if (input > 1)
+                  VerifyN = input;
+              }
+            } catch (Exception) {}
+          }
+            break;
         case "backtrack":
           arg = attr.Args.FirstOrDefault();
           if (arg == null)
@@ -99,9 +113,10 @@ namespace Microsoft.Dafny.Tacny.Language{
         ParseTacticAttributes(attr.Prev);
     }
 
-    public void InitBasicFrameCtrl(List<Statement> body, bool parentPartial, Attributes attrs,
+    public void InitBasicFrameCtrl(List<Statement> body, bool parentPartial, Attributes attrs, int verifyN,
       Func<ProofState, IEnumerable<ProofState>> patch = null, Attributes tacticDefAttrs = null){
       IsPartial = parentPartial;
+      VerifyN = verifyN;
       if (tacticDefAttrs != null)
         ParseTacticAttributes(tacticDefAttrs);
       Body = body;

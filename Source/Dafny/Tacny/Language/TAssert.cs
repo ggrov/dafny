@@ -38,7 +38,7 @@ namespace Microsoft.Dafny.Tacny.Language
         };
 
       var dummyBody = new List<Statement> { statement };
-      InitBasicFrameCtrl(dummyBody, false, null, tassertFramePatch);
+      InitBasicFrameCtrl(dummyBody, false, null, VerifyN, tassertFramePatch);
       state0.AddNewFrame(this);
 
 
@@ -52,7 +52,7 @@ namespace Microsoft.Dafny.Tacny.Language
           ps.MarkCurFrameAsTerminated(false, out dummy);
           return ps.ApplyPatch();// this will call the patch handler in tassert
         };
-      assertFrame.InitBasicFrameCtrl(dummyBody, false, null, assertFramePatch);
+      assertFrame.InitBasicFrameCtrl(dummyBody, false, null, VerifyN, tassertFramePatch);
       assertFrame.IncCounter();
       state0.AddNewFrame(assertFrame);
 

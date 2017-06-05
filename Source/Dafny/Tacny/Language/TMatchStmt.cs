@@ -52,7 +52,7 @@ namespace Microsoft.Dafny.Tacny.Language
 
       var stmt = GetStmt() as TacticCasesBlockStmt;
       var framectrl = new DefaultTacticFrameCtrl();
-      if (stmt != null) framectrl.InitBasicFrameCtrl(stmt.Body.Body, state0.IsCurFramePartial(), null);
+      if (stmt != null) framectrl.InitBasicFrameCtrl(stmt.Body.Body, state0.IsCurFramePartial(), null, VerifyN);
       state.AddNewFrame(framectrl);
 
       var idx = GetNthCaseIdx(RawCodeList);
@@ -125,12 +125,12 @@ namespace Microsoft.Dafny.Tacny.Language
       dummystmt.Add(stmt);
 
       _matchStmt = matchStmt;
-      matchCtrl.InitBasicFrameCtrl(dummystmt, state.IsCurFramePartial(), null);
+      matchCtrl.InitBasicFrameCtrl(dummystmt, state.IsCurFramePartial(), null, VerifyN);
       state.AddNewFrame(matchCtrl);
 
       //push a frame for the first case
       var caseCtrl = new DefaultTacticFrameCtrl();
-      caseCtrl.InitBasicFrameCtrl(stmt.Body.Body, state.IsCurFramePartial(), null);
+      caseCtrl.InitBasicFrameCtrl(stmt.Body.Body, state.IsCurFramePartial(), null, VerifyN);
       state.AddNewFrame(caseCtrl);
 
       foreach (var tmp in matchStmt.Cases[0].CasePatterns) {

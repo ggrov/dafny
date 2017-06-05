@@ -9,7 +9,6 @@ namespace Microsoft.Dafny.Tacny.Atomic{
     public override IEnumerable<ProofState> Generate(Statement statement, ProofState state){
 
       List<Expression> callArguments;
-      IVariable lv;
       InitArgs(state, statement, out callArguments);
 
       var expr = SimpExpr.SimpTacticExpr(state, callArguments[0]);

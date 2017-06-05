@@ -165,6 +165,7 @@ namespace Microsoft.Dafny.Tacny
             InterpretCaseStmt(caseStmt);            
           }
         } else if (stmt is ForallStmt) {
+          //TODO
         } else if (stmt is AssertStmt) {
           if ((stmt as AssertStmt).Proof != null) {
             InterpretAssertStmt(stmt as AssertStmt);
@@ -182,17 +183,6 @@ namespace Microsoft.Dafny.Tacny
       Contract.Requires(Tcce.NonNull(body));
       InterpertBlockStmt(body.Body);
     }
-
-    private void UndfoldTacticCall(Statement stmt)
-    {
-      var list = StackToDict(_frame);
-      // this is a top level tactic call
-      ProofState result = null;
-      if (IfEvalTac) {
-        result = TacnyInterpreter.EvalTopLevelTactic(_state, list, stmt, _errorReporterDelegate);
-      }
-      UpdateResultList(stmt, result != null ? result.GetGeneratedCode().Copy() : new List<Statement>());
-   }
 
     private void InterpretWhileStmt(WhileStmt stmt)
     {
@@ -251,6 +241,21 @@ namespace Microsoft.Dafny.Tacny
       _frame.Push(new Dictionary<IVariable, Type>());
       InterpertBlockStmt(stmt.Proof);
       _frame.Pop();
+    }
+
+
+    private void InterpretCalcStmt(CalcStmt stmt) {
+      //InterpertBlockStmt(stmt.);
+    }
+
+    private void UndfoldTacticCall(Statement stmt) {
+      var list = StackToDict(_frame);
+      // this is a top level tactic call
+      ProofState result = null;
+      if (IfEvalTac) {
+        result = TacnyInterpreter.EvalTopLevelTactic(_state, list, stmt, _errorReporterDelegate);
+      }
+      UpdateResultList(stmt, result != null ? result.GetGeneratedCode().Copy() : new List<Statement>());
     }
 
     private static Dictionary<IVariable, Type> StackToDict(Stack<Dictionary<IVariable, Type>> stack)

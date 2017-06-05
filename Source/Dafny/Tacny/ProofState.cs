@@ -16,6 +16,7 @@ namespace Microsoft.Dafny.Tacny{
     private readonly Program _original;
 
     private TacticBasicErr _errHandler;
+    private int _verifyNCount = 1;
     // Dynamic State
     public MemberDecl TargetMethod;
 
@@ -118,7 +119,7 @@ namespace Microsoft.Dafny.Tacny{
         }
       }
       _scope.Push(frame);
-
+      ResetVerifyN();
       TopLevelTacApp = tacAps.Copy();
 
       if (tactic != null && (aps != null && aps.Args.Count != tactic.Ins.Count))
@@ -204,6 +205,7 @@ namespace Microsoft.Dafny.Tacny{
           ctrl.TimeStamp = parent.FrameCtrl.TimeStamp;
       }
       _scope.Push(new Frame(parent, ctrl));
+      ResetVerifyN();
     }
     // note that this function would only be called when either a frame is proved or isEvaluated.
     public void MarkCurFrameAsTerminated(bool curFrameProved, out bool backtracked){
@@ -258,6 +260,21 @@ namespace Microsoft.Dafny.Tacny{
       }
 
       return backtrack;
+    }
+
+    public int GetVerifyN() {
+      return _verifyNCount;
+    }
+
+
+    public void DecreaseVerifyN()
+    {
+      if (_verifyNCount > 1)
+        _verifyNCount--;
+    }
+
+    public int ResetVerifyN() {
+      return _verifyNCount = _scope.Peek().FrameCtrl.VerifyN;
     }
 
     public int GetOrignalTopBacktrack(){
@@ -703,7 +720,7 @@ namespace Microsoft.Dafny.Tacny{
       public Frame( List<Statement> body , Attributes attr, Attributes tacticDefAttrs){
         Parent = null;
         FrameCtrl = new DefaultTacticFrameCtrl();
-        FrameCtrl.InitBasicFrameCtrl(body, false, attr, null, tacticDefAttrs);
+        FrameCtrl.InitBasicFrameCtrl(body, false, attr, 1, null, tacticDefAttrs);
 
         _declaredVariables = new Dictionary<string, Expression>();
         _dafnyVariables = new Dictionary<string, VariableData>();

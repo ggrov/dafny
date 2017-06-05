@@ -21,8 +21,7 @@ namespace Microsoft.Dafny.Tacny
     }
 
     public static ProofState EvalTopLevelTactic(ProofState state, Dictionary<IVariable, Type> variables,
-      Statement tacticApplication, ErrorReporterDelegate errorDelegate)
-    {
+      Statement tacticApplication, ErrorReporterDelegate errorDelegate) {
       Contract.Requires<ArgumentNullException>(Tcce.NonNull(variables));
       Contract.Requires<ArgumentNullException>(Tcce.NonNull(tacticApplication));
       Contract.Requires<ArgumentNullException>(state != null, "state");
@@ -35,19 +34,19 @@ namespace Microsoft.Dafny.Tacny
 #if !TACNY_DEBUG
       try {
 #endif
-        if (state.GetErrHandler().Reporter.Count(ErrorLevel.Error) != 0) {
-          var errs = CompoundErrorInformation.GenerateErrorInfoList(state);
-          if (errorDelegate != null) {
-            lock (errorDelegate) {
-              foreach (var err in errs) {
-                errorDelegate(err);
-              }
+      if (state.GetErrHandler().Reporter.Count(ErrorLevel.Error) != 0) {
+        var errs = CompoundErrorInformation.GenerateErrorInfoList(state);
+        if (errorDelegate != null) {
+          lock (errorDelegate) {
+            foreach (var err in errs) {
+              errorDelegate(err);
             }
           }
-
-          return null;
         }
-        ret = GenerateSolution(state, errorDelegate).FirstOrDefault();
+
+        return null;
+      }
+      ret = GenerateSolution(state, errorDelegate).FirstOrDefault();
 #if !TACNY_DEBUG
       } catch (Exception e) {
         String msg;
@@ -73,8 +72,7 @@ namespace Microsoft.Dafny.Tacny
       return ret;
     }
 
-    public static IEnumerable<ProofState> EvalStmt(Statement stmt, ProofState state)
-    {
+    public static IEnumerable<ProofState> EvalStmt(Statement stmt, ProofState state) {
       Contract.Requires<ArgumentNullException>(state != null, "state");
 
       IEnumerable<ProofState> enumerable = null;
@@ -94,9 +92,9 @@ namespace Microsoft.Dafny.Tacny
         if (declaration != null) {
           enumerable = RegisterVariable(declaration, state);
         } else if (stmt is AssignSuchThatStmt) {
-          enumerable = EvalSuchThatStmt((AssignSuchThatStmt) stmt, state);
+          enumerable = EvalSuchThatStmt((AssignSuchThatStmt)stmt, state);
         } else if (stmt is PredicateStmt) {
-          enumerable = EvalPredicateStmt((PredicateStmt) stmt, state);
+          enumerable = EvalPredicateStmt((PredicateStmt)stmt, state);
         } else {
           var updateStmt = stmt as UpdateStmt;
           if (updateStmt != null) {
@@ -123,7 +121,7 @@ namespace Microsoft.Dafny.Tacny
             }
           }
           if (enumerable == null) {
-// default action as macro
+            // default action as macro
             enumerable = DefaultAction(stmt, state);
           }
         }
@@ -131,8 +129,7 @@ namespace Microsoft.Dafny.Tacny
       return enumerable;
     }
 
-    public static IEnumerable<ProofState> EvalPredicateStmt(PredicateStmt predicate, ProofState state)
-    {
+    public static IEnumerable<ProofState> EvalPredicateStmt(PredicateStmt predicate, ProofState state) {
       Contract.Requires<ArgumentNullException>(predicate != null, "predicate");
 
       var newPredicate = SimpExpr.SimpTacticExpr(state, predicate);
@@ -142,14 +139,12 @@ namespace Microsoft.Dafny.Tacny
       yield return copy;
     }
 
-    public static IEnumerable<ProofState> EvalSuchThatStmt(AssignSuchThatStmt stmt, ProofState state)
-    {
+    public static IEnumerable<ProofState> EvalSuchThatStmt(AssignSuchThatStmt stmt, ProofState state) {
       var evaluator = new Atomic.SuchThatAtomic();
       return evaluator.Generate(stmt, state);
     }
 
-    public static IEnumerable<ProofState> RegisterVariable(TacticVarDeclStmt declaration, ProofState state)
-    {
+    public static IEnumerable<ProofState> RegisterVariable(TacticVarDeclStmt declaration, ProofState state) {
       if (declaration.Update == null)
         yield break;
       var rhs = declaration.Update as UpdateStmt;
@@ -173,19 +168,19 @@ namespace Microsoft.Dafny.Tacny
           Contract.Assert(declaration.Locals.ElementAtOrDefault(index) != null, "register var err");
           var exprRhs = item as ExprRhs;
           if (exprRhs?.Expr is ApplySuffix) {
-            var aps = (ApplySuffix) exprRhs.Expr;
+            var aps = (ApplySuffix)exprRhs.Expr;
             var result = SimpExpr.UnfoldTacticProjection(state, aps);
             state.AddTacnyVar(declaration.Locals[index], result);
           } else if (exprRhs?.Expr is Microsoft.Dafny.LiteralExpr) {
-            state.AddTacnyVar(declaration.Locals[index], (Microsoft.Dafny.LiteralExpr) exprRhs?.Expr);
+            state.AddTacnyVar(declaration.Locals[index], (Microsoft.Dafny.LiteralExpr)exprRhs?.Expr);
           } else if (exprRhs?.Expr is Microsoft.Dafny.NameSegment) {
-            var name = ((Microsoft.Dafny.NameSegment) exprRhs.Expr).Name;
+            var name = ((Microsoft.Dafny.NameSegment)exprRhs.Expr).Name;
             if (state.ContainTVal(name))
               // in the case that referring to an exisiting tvar, dereference it
               state.AddTacnyVar(declaration.Locals[index], state.GetTVarValue(name));
           } else {
             var res = EvalExpr.EvalTacticExpression(state, exprRhs?.Expr);
-            if(res == null)
+            if (res == null)
               yield break;
             state.AddTacnyVar(declaration.Locals[index], res);
           }
@@ -195,8 +190,7 @@ namespace Microsoft.Dafny.Tacny
     }
 
     [Pure]
-    private static IEnumerable<ProofState> UpdateLocalValue(UpdateStmt us, ProofState state)
-    {
+    private static IEnumerable<ProofState> UpdateLocalValue(UpdateStmt us, ProofState state) {
       Contract.Requires<ArgumentNullException>(us != null, "stmt");
       Contract.Requires<ArgumentNullException>(state != null, "state");
       Contract.Requires<ArgumentException>(state.IsLocalAssignment(us), "stmt");
@@ -206,11 +200,11 @@ namespace Microsoft.Dafny.Tacny
         Contract.Assert(us.Lhss.ElementAtOrDefault(index) != null, "register var err");
         var exprRhs = item as ExprRhs;
         if (exprRhs?.Expr is ApplySuffix) {
-          var aps = (ApplySuffix) exprRhs.Expr;
+          var aps = (ApplySuffix)exprRhs.Expr;
           var result = SimpExpr.UnfoldTacticProjection(state, aps);
-          state.UpdateTacticVar(((NameSegment) us.Lhss[index]).Name, result);
+          state.UpdateTacticVar(((NameSegment)us.Lhss[index]).Name, result);
         } else if (exprRhs?.Expr is Microsoft.Dafny.LiteralExpr) {
-          state.UpdateTacticVar(((NameSegment) us.Lhss[index]).Name, (Microsoft.Dafny.LiteralExpr) exprRhs?.Expr);
+          state.UpdateTacticVar(((NameSegment)us.Lhss[index]).Name, (Microsoft.Dafny.LiteralExpr)exprRhs?.Expr);
         } else {
           throw new NotSupportedException("Not supported update statement");
         }
@@ -224,8 +218,7 @@ namespace Microsoft.Dafny.Tacny
     /// <param name="stmt"></param>
     /// <param name="state"></param>
     /// <returns></returns>
-    private static IEnumerable<ProofState> DefaultAction(Statement stmt, ProofState state)
-    {
+    private static IEnumerable<ProofState> DefaultAction(Statement stmt, ProofState state) {
       Contract.Requires<ArgumentNullException>(stmt != null, "stmt");
       Contract.Requires<ArgumentNullException>(state != null, "state");
       state.AddStatement(stmt);
@@ -233,8 +226,7 @@ namespace Microsoft.Dafny.Tacny
     }
 
     private static int _branchCount = 0;
-    public static VerifyResult VerifyState(ProofState state)
-    {
+    public static VerifyResult VerifyState(ProofState state) {
       _branchCount++;
       Console.WriteLine("Branch Count: " + _branchCount);
 
@@ -256,157 +248,161 @@ namespace Microsoft.Dafny.Tacny
       }
     }
 
-      /// <summary>
-      /// 
-      /// </summary>
-      /// <param name="rootState"></param>
-      /// <param name="errDelegate"></param> to report err back to GUI
-      /// <returns></returns>
-      internal static IEnumerable<ProofState> GenerateSolution(ProofState rootState, ErrorReporterDelegate errDelegate)
-      {
-        var stack = new Stack<IEnumerator<ProofState>>();
-        ProofState lastSucc = null; // the last verified state, for recovering over-backtracking
-        var discarded = new List<Tuple<ProofState, VerifyResult>>(); // failed ps and its verified status
-        ProofState proofState = rootState;
-        stack.Push(rootState.EvalStep().GetEnumerator());
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <param name="rootState"></param>
+    /// <param name="errDelegate"></param> to report err back to GUI
+    /// <returns></returns>
+    internal static IEnumerable<ProofState> GenerateSolution(ProofState rootState, ErrorReporterDelegate errDelegate) {
+      var stack = new Stack<IEnumerator<ProofState>>();
+      ProofState lastSucc = null; // the last verified state, for recovering over-backtracking
+      var discarded = new List<Tuple<ProofState, VerifyResult>>(); // failed ps and its verified status
+      ProofState proofState = rootState;
+      stack.Push(rootState.EvalStep().GetEnumerator());
 
-        IEnumerator<ProofState> enumerator = null;
+      IEnumerator<ProofState> enumerator = null;
 
-        List<int> backtackList = null;
+      List<int> backtackList = null;
 
-        while (stack.Count > 0) {
-          bool wasNull = false;
-          if (enumerator != null) {
-            try {
-              if (enumerator.Current == null) {
-                wasNull = true;
-              }
-            } catch {
+      while (stack.Count > 0) {
+        bool wasNull = false;
+        if (enumerator != null) {
+          try {
+            if (enumerator.Current == null) {
               wasNull = true;
             }
+          } catch {
+            wasNull = true;
+          }
+        }
+
+        if (enumerator == null || !enumerator.MoveNext()) {
+          // check if current is valid. a enumerator is empty when current is invalid and MoveNext is null
+          if (enumerator != null && wasNull) {
+            //Console.WriteLine("Null eval result is detected !");
+            discarded.Add(new Tuple<ProofState, VerifyResult>(proofState, VerifyResult.Unresolved));
           }
 
-          if (enumerator == null || !enumerator.MoveNext()) {
-            // check if current is valid. a enumerator is empty when current is invalid and MoveNext is null
-            if (enumerator != null && wasNull) {
-              //Console.WriteLine("Null eval result is detected !");
-              discarded.Add(new Tuple<ProofState, VerifyResult>(proofState, VerifyResult.Unresolved));
-            }
-
-            enumerator = stack.Pop();
-            if (!enumerator.MoveNext()) {
-              continue;
-            }
+          enumerator = stack.Pop();
+          if (!enumerator.MoveNext()) {
+            continue;
           }
-          proofState = enumerator.Current;
-          //set the backtrack list back to the frame, this will udpate the backtrack count for the parent one.
-          if (backtackList != null)
-            proofState.SetBackTrackCount(backtackList);
-          backtackList = proofState.GetBackTrackCount();
+        }
+        proofState = enumerator.Current;
+        //set the backtrack list back to the frame, this will udpate the backtrack count for the parent one.
+        if (backtackList != null)
+          proofState.SetBackTrackCount(backtackList);
+        backtackList = proofState.GetBackTrackCount();
 
-          //check if any new added coded reuqires to call verifier, or reach the last line of code
-          if (proofState.NeedVerify || proofState.IsCurFrameEvaluated()) {
-            proofState.NeedVerify = false;
-            bool backtracked = false;
+        if (proofState.NeedVerify && proofState.GetVerifyN() > 1) {
+         proofState.DecreaseVerifyN();
+         proofState.NeedVerify = false;
+        }
+        //check if any new added coded reuqires to call verifier, or reach the last line of code
+        if ((proofState.NeedVerify && proofState.GetVerifyN() == 1)|| proofState.IsCurFrameEvaluated()) {
+          proofState.ResetVerifyN();
+          proofState.NeedVerify = false;
+          bool backtracked = false;
 
-            switch (VerifyState(proofState)) {
-              case VerifyResult.Verified:
-                //check if the frame are evaluated, as well as requiests for backtraking 
-                proofState.MarkCurFrameAsTerminated(true, out backtracked);
+          switch (VerifyState(proofState)) {
+            case VerifyResult.Verified:
+              //check if the frame are evaluated, as well as requiests for backtraking 
+              proofState.MarkCurFrameAsTerminated(true, out backtracked);
+              if (backtracked) {
+                lastSucc = proofState;
+                discarded.Add(new Tuple<ProofState, VerifyResult>(proofState, VerifyResult.Backtracked));
+              }
+
+              if (proofState.IsTerminated()) {
+                yield return proofState;
+                yield break;
+              }
+
+              break;
+            case VerifyResult.Failed:
+              if (proofState.IsCurFrameEvaluated()) {
+                proofState.MarkCurFrameAsTerminated(false, out backtracked);
                 if (backtracked) {
                   lastSucc = proofState;
                   discarded.Add(new Tuple<ProofState, VerifyResult>(proofState, VerifyResult.Backtracked));
                 }
-
                 if (proofState.IsTerminated()) {
                   yield return proofState;
                   yield break;
                 }
-
-                break;
-              case VerifyResult.Failed:
-                if (proofState.IsCurFrameEvaluated()) {
-                  proofState.MarkCurFrameAsTerminated(false, out backtracked);
-                  if (backtracked) {
-                    lastSucc = proofState;
-                    discarded.Add(new Tuple<ProofState, VerifyResult>(proofState, VerifyResult.Backtracked));
-                  }
-                  if (proofState.IsTerminated()) {
-                    yield return proofState;
-                    yield break;
-                  }
-                }
-                break;
-              case VerifyResult.Unresolved:
-                //Console.WriteLine("in unresolved");
-                discarded.Add(new Tuple<ProofState, VerifyResult>(proofState, VerifyResult.Unresolved));
-                //discard current branch if fails to resolve
-                continue;
-              default:
-                throw new ArgumentOutOfRangeException();
-            }
-          }
-          /*
-       * when failed, check if this method is evaluated , i.e. all tstmt are evalauted,
-       * if so, do nothing will dischard this branch and continue with the next one
-       * otherwise, continue to evaluate the next stmt
-       */
-          if (!proofState.IsCurFrameEvaluated()) {
-            //push the current one to the stack
-            stack.Push(enumerator);
-            //move to the next stmt
-            enumerator = (proofState.EvalStep().GetEnumerator());
-          } else {
-            backtackList = proofState.GetBackTrackCount(); // update the current bc count to the list
-            if (proofState.InAsserstion) {
-              proofState.GetErrHandler().ErrType = TacticBasicErr.ErrorType.Assertion;
-              var patchRes = proofState.ApplyPatch();
-              if (patchRes != null) {
-                stack.Push(enumerator);
-                enumerator = patchRes.GetEnumerator();
               }
-            } else
-              proofState.GetErrHandler().ErrType = TacticBasicErr.ErrorType.NotProved;
-
-            discarded.Add(new Tuple<ProofState, VerifyResult>(proofState, VerifyResult.Failed));
+              break;
+            case VerifyResult.Unresolved:
+              //Console.WriteLine("in unresolved");
+              discarded.Add(new Tuple<ProofState, VerifyResult>(proofState, VerifyResult.Unresolved));
+              //discard current branch if fails to resolve
+              continue;
+            default:
+              throw new ArgumentOutOfRangeException();
           }
-
         }
-        //check if over-backchecked
-        if (backtackList != null && backtackList.Exists(x => x > 0)) {
-          if (lastSucc == null)
-            Console.WriteLine("!!! No more branch for the request of " + (backtackList.Last() + 1) +
-                              "backtracking, and no branch.");
-          else {
-            Console.WriteLine("!!! No more branch for the request of " + lastSucc.GetOrignalTopBacktrack() +
-                              ", remaining " +
-                              (backtackList.Last() + 1 > lastSucc.GetOrignalTopBacktrack()
-                                ? lastSucc.GetOrignalTopBacktrack()
-                                : backtackList.Last() + 1) + " requests, return the last one.");
-            yield return lastSucc;
-          }
-
+        /*
+     * when failed, check if this method is evaluated , i.e. all tstmt are evalauted,
+     * if so, do nothing will dischard this branch and continue with the next one
+     * otherwise, continue to evaluate the next stmt
+     */
+        if (!proofState.IsCurFrameEvaluated()) {
+          //push the current one to the stack
+          stack.Push(enumerator);
+          //move to the next stmt
+          enumerator = (proofState.EvalStep().GetEnumerator());
         } else {
-          // no result is successful
-          ProofState s0;
-          if (discarded.Count > 0) {
-            s0 = discarded[discarded.Count - 1].Item1;
-            //s0.GetErrHandler().ExceptionReport();
-          } else {
-            s0 = rootState;
-          }
-          s0.ReportTacticError(s0.TopLevelTacApp.Tok, 
-            "No solution is found. \n The error message from the last failed branch: ");
-          var errs = CompoundErrorInformation.GenerateErrorInfoList(s0);
-          if (errDelegate != null) {
-            lock (errDelegate) {
-              foreach (var err in errs) {
-                errDelegate(err);
-              }
+          backtackList = proofState.GetBackTrackCount(); // update the current bc count to the list
+          if (proofState.InAsserstion) {
+            proofState.GetErrHandler().ErrType = TacticBasicErr.ErrorType.Assertion;
+            var patchRes = proofState.ApplyPatch();
+            if (patchRes != null) {
+              stack.Push(enumerator);
+              enumerator = patchRes.GetEnumerator();
+            }
+          } else
+            proofState.GetErrHandler().ErrType = TacticBasicErr.ErrorType.NotProved;
+
+          discarded.Add(new Tuple<ProofState, VerifyResult>(proofState, VerifyResult.Failed));
+        }
+
+      }
+      //check if over-backchecked
+      if (backtackList != null && backtackList.Exists(x => x > 0)) {
+        if (lastSucc == null)
+          Console.WriteLine("!!! No more branch for the request of " + (backtackList.Last() + 1) +
+                            "backtracking, and no branch.");
+        else {
+          Console.WriteLine("!!! No more branch for the request of " + lastSucc.GetOrignalTopBacktrack() +
+                            ", remaining " +
+                            (backtackList.Last() + 1 > lastSucc.GetOrignalTopBacktrack()
+                              ? lastSucc.GetOrignalTopBacktrack()
+                              : backtackList.Last() + 1) + " requests, return the last one.");
+          yield return lastSucc;
+        }
+
+      } else {
+        // no result is successful
+        ProofState s0;
+        if (discarded.Count > 0) {
+          s0 = discarded[discarded.Count - 1].Item1;
+          //s0.GetErrHandler().ExceptionReport();
+        } else {
+          s0 = rootState;
+        }
+        s0.ReportTacticError(s0.TopLevelTacApp.Tok,
+          "No solution is found. \n The error message from the last failed branch: ");
+        var errs = CompoundErrorInformation.GenerateErrorInfoList(s0);
+        if (errDelegate != null) {
+          lock (errDelegate) {
+            foreach (var err in errs) {
+              errDelegate(err);
             }
           }
         }
-      
+      }
+
     }
   }
 }
