@@ -60,7 +60,7 @@ namespace Microsoft.Dafny.Tacny{
     /// </summary>
     /// <param name="tacAps">Tactic application</param>
     /// <param name="variables">Dafny variables</param>
-    public bool InitState(Statement tacAps, Dictionary<IVariable, Dfy.Type> variables){
+    public bool InitState(Statement tacAps, Dictionary<IVariable, Dfy.Type> variables,  bool ifPartial){
       // clear the scope  
       _scope = new Stack<Frame>();
 
@@ -104,7 +104,7 @@ namespace Microsoft.Dafny.Tacny{
       }
 
 
-      var frame = new Frame(body, attrs, tacticAttrs);
+      var frame = new Frame(body, ifPartial, attrs, tacticAttrs);
 
       foreach (var item in variables){
         if (!frame.ContainDafnyVar(item.Key.Name))
@@ -717,10 +717,10 @@ namespace Microsoft.Dafny.Tacny{
       /// <summary>
       /// Initialize the top level frame
       /// </summary>
-      public Frame( List<Statement> body , Attributes attr, Attributes tacticDefAttrs){
+      public Frame( List<Statement> body, bool ifPartial,  Attributes attr, Attributes tacticDefAttrs){
         Parent = null;
         FrameCtrl = new DefaultTacticFrameCtrl();
-        FrameCtrl.InitBasicFrameCtrl(body, false, attr, 1, null, tacticDefAttrs);
+        FrameCtrl.InitBasicFrameCtrl(body, ifPartial, attr, 1, null, tacticDefAttrs);
 
         _declaredVariables = new Dictionary<string, Expression>();
         _dafnyVariables = new Dictionary<string, VariableData>();

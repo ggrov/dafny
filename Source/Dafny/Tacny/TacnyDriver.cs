@@ -19,6 +19,10 @@ namespace Microsoft.Dafny.Tacny
     private static TacnyDriver _driver;
     private static ErrorReporterDelegate _errorReporterDelegate;
     private static Dictionary<Statement, List<Statement>> _resultList;
+    private static List<IEnumerable<ProofState>> _branches;
+    private static Stopwatch _timer;
+    private readonly ProofState _state;
+    private static int _tacticCalls;
 
     private static Dictionary<Statement, List<Statement>> GetResultList(){
       if (_resultList == null)
@@ -30,17 +34,19 @@ namespace Microsoft.Dafny.Tacny
       _resultList = rl;
     }
 
+    private static void RemoveFromResultList(Statement stmt)
+    {
+      var newrl = GetResultList().Where(kvp => kvp.Key.Tok.pos != stmt.Tok.pos).ToDictionary(i => i.Key, i => i.Value);
+      SetResultList(newrl);
+    }
+
     private static void UpdateResultList(Statement stmt, List<Statement> result) {
+      //note that this will override generated code for the same tactic call
       var newrl = GetResultList().Where(kvp => kvp.Key.Tok.pos != stmt.Tok.pos).ToDictionary(i => i.Key, i => i.Value);
       SetResultList(newrl);
       GetResultList().Add(stmt.Copy(), result != null ? result : new List<Statement>());
     }
-
-    private Stack<Dictionary<IVariable, Type>> _frame;
-    private readonly ProofState _state;
-
-    private static Stopwatch _timer;
-
+   
     public static Stopwatch GetTimer () {
       if (_timer == null){
         _timer = new Stopwatch();
@@ -57,12 +63,15 @@ namespace Microsoft.Dafny.Tacny
       return bufferList;
     }
 
-    private TacnyDriver(Program program)
+    private TacnyDriver(Program program, ErrorReporterDelegate erd)
     {
       Contract.Requires(Tcce.NonNull(program));
       // initialize state
+      GetTimer().Restart();
       _state = new ProofState(program);
-      _frame = new Stack<Dictionary<IVariable, Type>>();
+      _errorReporterDelegate = erd;
+      _branches = new List<IEnumerable<ProofState>>();
+      _tacticCalls = 0;
     }
 
     public static MemberDecl ApplyTacticInMethod(Program program, MemberDecl target, ErrorReporterDelegate erd,
@@ -72,9 +81,8 @@ namespace Microsoft.Dafny.Tacny
       Contract.Requires(target != null);
       Stopwatch watch = new Stopwatch();
       watch.Start();
-      GetTimer().Restart();
-      _driver = new TacnyDriver(program);
-      _errorReporterDelegate = erd;
+
+      _driver = new TacnyDriver(program, erd);
       // backup datatype info, as this will be reset by the internal resoling process in tacny.
       // this contains datatype obj instance for comparing types
       Type.BackupScopes(); 
@@ -89,12 +97,36 @@ namespace Microsoft.Dafny.Tacny
       return result;
     }
 
+    private static bool GenerateResultCode()
+    {
+      return GenerateResultCode0(_branches);
+    }
+
+    private static bool GenerateResultCode0 (List<IEnumerable<ProofState>> branches)
+    {
+      if (branches != null && branches.Count > 0) {
+        var result = branches[0].FirstOrDefault();
+        if (result != null) {
+          UpdateResultList(result.TopLevelTacApp,
+            result.GetGeneratedCode().Copy());
+          branches[0] = branches[0].Skip(1);
+        }
+
+        if (branches.Count == 1) {
+          return result == null ? false : true;
+        } else if (GenerateResultCode0(branches.GetRange(1, branches.Count - 1))) {
+          return true;
+        } else
+          return GenerateResultCode0(branches);
+      }
+      return false;
+    }
 
     private MemberDecl InterpretAndUnfoldTactic(MemberDecl target, Resolver r)
     {
       Contract.Requires(Tcce.NonNull(target));
       // initialize new stack for variables
-      _frame = new Stack<Dictionary<IVariable, Type>>();
+      var frame = new Stack<Dictionary<IVariable, Type>>();
 
       var method = target as Method;
       if (method != null) {
@@ -102,14 +134,14 @@ namespace Microsoft.Dafny.Tacny
         _state.TargetMethod = target;
         var dict = method.Ins.Concat(method.Outs)
           .ToDictionary<IVariable, IVariable, Type>(item => item, item => item.Type);
-        _frame.Push(dict);
 
+        frame.Push(dict);
         var preRes = GetResultList().Keys.Copy();
 
-        InterpertBlockStmt(method.Body);
-        dict = _frame.Pop();
+        InterpertBlockStmt(method.Body, frame);
+        GenerateResultCode();
         // sanity check
-        Contract.Assert(_frame.Count == 0);
+        Contract.Assert(frame.Count == 0);
 
         var newRets = 
           GetResultList().Where(kvp => !preRes.Contains(kvp.Key)).ToDictionary(i => i.Key, i => i.Value);
@@ -119,7 +151,6 @@ namespace Microsoft.Dafny.Tacny
         method.Body.Body.Clear();
         if (body != null)
           method.Body.Body.AddRange(body.Body);
-
 
         // use the original resolver of the resoved program, as it contains all the necessary type info
         method.CallsTactic = 0; 
@@ -133,16 +164,16 @@ namespace Microsoft.Dafny.Tacny
       return method;
     }
 
-    private void InterpertBlockStmt(List<Statement> body)
+    private void InterpertBlockStmt(List<Statement> body, Stack<Dictionary<IVariable, Type>> frame)
     {
-      _frame.Push(new Dictionary<IVariable, Type>());
+      frame.Push(new Dictionary<IVariable, Type>());
       foreach (var stmt in body) {
         if (stmt is VarDeclStmt) {
           var vds = stmt as VarDeclStmt;
           // register local variable declarations
           foreach (var local in vds.Locals) {
             try {
-              _frame.Peek().Add(local, local.Type);
+              frame.Peek().Add(local, local.Type);
             } catch (Exception e) {
               //TODO: some error handling when target is not resolved
               Console.Out.WriteLine(e.Message);
@@ -150,97 +181,93 @@ namespace Microsoft.Dafny.Tacny
           }
         } else if (stmt is IfStmt) {
           var ifStmt = stmt as IfStmt;
-          InterpretIfStmt(ifStmt);
+          InterpretIfStmt(ifStmt, frame);
         } else if (stmt is WhileStmt) {
           var whileStmt = stmt as WhileStmt;
-          InterpretWhileStmt(whileStmt);
+          InterpretWhileStmt(whileStmt, frame);
         } else if (stmt is UpdateStmt) {
           if (_state.IsTacticCall(stmt as UpdateStmt)) {
-            UndfoldTacticCall(stmt);
+            UndfoldTacticCall(stmt, StackToDict(frame));
           }
         } else if (stmt is InlineTacticBlockStmt) {
-          UndfoldTacticCall(stmt);
+          UndfoldTacticCall(stmt, StackToDict(frame));
         } else if (stmt is MatchStmt) {
           foreach (var caseStmt in (stmt as MatchStmt).Cases) {
-            InterpretCaseStmt(caseStmt);            
+            InterpretCaseStmt(caseStmt, frame);            
           }
         } else if (stmt is ForallStmt) {
           //TODO
         } else if (stmt is AssertStmt) {
           if ((stmt as AssertStmt).Proof != null) {
-            InterpretAssertStmt(stmt as AssertStmt);
+            InterpretAssertStmt(stmt as AssertStmt, frame);
           }
         } else if (stmt is CalcStmt) {
         } else if (stmt is BlockStmt) {
-          InterpertBlockStmt((stmt as BlockStmt));
+          InterpertBlockStmt((stmt as BlockStmt), frame);
         }
       }
-      _frame.Pop();
+      frame.Pop();
     }
     // Find tactic application and resolve it
-    private void InterpertBlockStmt(BlockStmt body)
+    private void InterpertBlockStmt(BlockStmt body, Stack<Dictionary<IVariable, Type>> frame)
     {
       Contract.Requires(Tcce.NonNull(body));
-      InterpertBlockStmt(body.Body);
+      InterpertBlockStmt(body.Body, frame);
     }
 
-    private void InterpretWhileStmt(WhileStmt stmt)
+    private void InterpretWhileStmt(WhileStmt stmt, Stack<Dictionary<IVariable, Type>> frame)
     {
       if (stmt.TInvariants != null && stmt.TInvariants.Count > 0) {
         foreach (var tinv in stmt.TInvariants) {
           if (tinv is UpdateStmt) {
-            var list = StackToDict(_frame);
+            var list = StackToDict(frame);
 
-
-            // this is a top level tactic call
-            ProofState result = null;
             if (IfEvalTac) {
-              result = TacnyInterpreter.EvalTopLevelTactic(_state, list, tinv as UpdateStmt, _errorReporterDelegate);
+              _branches.Add(
+                TacnyInterpreter.EvalTopLevelTactic(_state.Copy(), list, tinv as UpdateStmt, _errorReporterDelegate,
+                 _state.TargetMethod.CallsTactic != _tacticCalls + 1));
+              _tacticCalls++;
             }
-            if (result != null)
-              UpdateResultList(tinv as UpdateStmt,
-                result != null ? result.GetGeneratedCode().Copy() : new List<Statement>());
+
           }
         }
       }
-      InterpertBlockStmt(stmt.Body);
+      InterpertBlockStmt(stmt.Body, frame);
     }
 
-    private void InterpretIfStmt(IfStmt ifStmt)
+    private void InterpretIfStmt(IfStmt ifStmt, Stack<Dictionary<IVariable, Type>> frame)
     {
       Contract.Requires(Tcce.NonNull(ifStmt));
       //throw new NotImplementedException();
 
-      InterpertBlockStmt(ifStmt.Thn);
+      InterpertBlockStmt(ifStmt.Thn, frame);
       if (ifStmt.Els == null)
         return;
       var els = ifStmt.Els as BlockStmt;
       if (els != null) {
-        InterpertBlockStmt(els);
+        InterpertBlockStmt(els, frame);
       } else if (ifStmt.Els is IfStmt) {
-        InterpretIfStmt((IfStmt) ifStmt.Els);
+        InterpretIfStmt((IfStmt) ifStmt.Els, frame);
       }
     }
 
-    private void InterpretCaseStmt(MatchCaseStmt stmt)
+    private void InterpretCaseStmt(MatchCaseStmt stmt, Stack<Dictionary<IVariable, Type>> frame)
     {
-      _frame.Push(new Dictionary<IVariable, Type>());
+      frame.Push(new Dictionary<IVariable, Type>());
       foreach (var var in stmt.Ctor.Formals) {
         try {
-          _frame.Peek().Add(var, var.Type);
+          frame.Peek().Add(var, var.Type);
         } catch (Exception e) {
           Console.Out.WriteLine(e.Message);
         }
       }
-      InterpertBlockStmt(stmt.Body);
-      _frame.Pop();
+      InterpertBlockStmt(stmt.Body, frame);
+      frame.Pop();
     }
 
-    private void InterpretAssertStmt(AssertStmt stmt)
+    private void InterpretAssertStmt(AssertStmt stmt, Stack<Dictionary<IVariable, Type>> frame)
     {
-      _frame.Push(new Dictionary<IVariable, Type>());
-      InterpertBlockStmt(stmt.Proof);
-      _frame.Pop();
+      InterpertBlockStmt(stmt.Proof, frame);
     }
 
 
@@ -248,14 +275,14 @@ namespace Microsoft.Dafny.Tacny
       //InterpertBlockStmt(stmt.);
     }
 
-    private void UndfoldTacticCall(Statement stmt) {
-      var list = StackToDict(_frame);
+    private void UndfoldTacticCall(Statement stmt, Dictionary<IVariable, Type> varList) {
       // this is a top level tactic call
-      ProofState result = null;
       if (IfEvalTac) {
-        result = TacnyInterpreter.EvalTopLevelTactic(_state, list, stmt, _errorReporterDelegate);
+        _branches.Add(
+          TacnyInterpreter.EvalTopLevelTactic(_state.Copy(), varList, stmt, _errorReporterDelegate, 
+          _state.TargetMethod.CallsTactic != _tacticCalls + 1));
+        _tacticCalls++;
       }
-      UpdateResultList(stmt, result != null ? result.GetGeneratedCode().Copy() : new List<Statement>());
     }
 
     private static Dictionary<IVariable, Type> StackToDict(Stack<Dictionary<IVariable, Type>> stack)

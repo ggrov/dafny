@@ -125,6 +125,7 @@ namespace Microsoft.Dafny.Tacny.Language{
       GeneratedCode = null;
       RawCodeList = new List<List<Statement>>();
       _patch = patch;
+
     }
 
     public void AddGeneratedCode(Statement newStmt) {

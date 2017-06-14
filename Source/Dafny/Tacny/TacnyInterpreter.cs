@@ -20,15 +20,17 @@ namespace Microsoft.Dafny.Tacny
       Backtracked,
     }
 
-    public static ProofState EvalTopLevelTactic(ProofState state, Dictionary<IVariable, Type> variables,
-      Statement tacticApplication, ErrorReporterDelegate errorDelegate) {
+    public static IEnumerable<ProofState> EvalTopLevelTactic(ProofState state, Dictionary<IVariable, Type> variables,
+      Statement tacticApplication, ErrorReporterDelegate errorDelegate, bool ifPartial) {
       Contract.Requires<ArgumentNullException>(Tcce.NonNull(variables));
       Contract.Requires<ArgumentNullException>(Tcce.NonNull(tacticApplication));
       Contract.Requires<ArgumentNullException>(state != null, "state");
       Contract.Requires(tacticApplication is UpdateStmt || tacticApplication is InlineTacticBlockStmt);
 
       ProofState ret;
-      if (state.InitState(tacticApplication, variables) == false)
+      IEnumerable<ProofState> branches;
+
+      if (state.InitState(tacticApplication, variables, ifPartial) == false)
         return null;
 
 #if !TACNY_DEBUG
@@ -37,17 +39,16 @@ namespace Microsoft.Dafny.Tacny
       if (state.GetErrHandler().Reporter.Count(ErrorLevel.Error) != 0) {
         var errs = CompoundErrorInformation.GenerateErrorInfoList(state);
         if (errorDelegate != null) {
-          lock (errorDelegate) {
-            foreach (var err in errs) {
-              errorDelegate(err);
-            }
+           foreach (var err in errs) {
+             errorDelegate(err);
           }
         }
 
         return null;
       }
-      ret = GenerateSolution(state, errorDelegate).FirstOrDefault();
-#if !TACNY_DEBUG
+      branches = GenerateSolution(state, errorDelegate);
+
+      #if !TACNY_DEBUG
       } catch (Exception e) {
         String msg;
         List<CompoundErrorInformation> errs;
@@ -60,16 +61,15 @@ namespace Microsoft.Dafny.Tacny
         }
 
         if (errorDelegate != null) {
-          lock (errorDelegate) {
             foreach (var err in errs) {
               errorDelegate(err);
             }
           }
-        }
-        ret = null;
+        return null;
       }
 #endif
-      return ret;
+
+      return branches;
     }
 
     public static IEnumerable<ProofState> EvalStmt(Statement stmt, ProofState state) {
@@ -395,10 +395,8 @@ namespace Microsoft.Dafny.Tacny
           "No solution is found. \n The error message from the last failed branch: ");
         var errs = CompoundErrorInformation.GenerateErrorInfoList(s0);
         if (errDelegate != null) {
-          lock (errDelegate) {
-            foreach (var err in errs) {
-              errDelegate(err);
-            }
+          foreach (var err in errs) {
+            errDelegate(err);
           }
         }
       }

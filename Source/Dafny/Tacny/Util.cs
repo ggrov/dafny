@@ -90,13 +90,38 @@ namespace Microsoft.Dafny.Tacny {
       var member = tld.Members.FirstOrDefault(x => x.Name == state.TargetMethod.Name) as Method;
       var body = member?.Body;
 
+      //sust tactic call with generated code
       foreach(var kvp in code) {
         InsertCodeInternal(body.Body, kvp.Value, kvp.Key);
       }
 
+      //clean up unfolded tactic call
+      RemoveUnfoldedTacticCalls(body.Body, state);
       return body;
     }
 
+    private static void RemoveUnfoldedTacticCalls(List<Statement> body, ProofState state)
+    {
+      Contract.Requires<ArgumentNullException>(body != null, "body ");
+      for (var i = 0; i < body.Count; i++) {
+        var stmt = body[i];
+        if ((stmt as AssertStmt)?.Proof != null) {
+          RemoveUnfoldedTacticCalls((stmt as AssertStmt).Proof.Body, state);
+        } else if ((stmt is UpdateStmt && state.IsTacticCall(stmt as UpdateStmt)) || 
+          stmt is InlineTacticBlockStmt) {
+          body.RemoveAt(i);
+        } else if (stmt is WhileStmt) {
+        } else if (stmt is IfStmt) {
+        } else if (stmt is MatchStmt) {
+          foreach (var caseStmt in (stmt as MatchStmt).Cases) {
+            RemoveUnfoldedTacticCalls(caseStmt.Body, state);
+          }
+        } else if (stmt is CalcStmt) {
+        } else if (stmt is BlockStmt) {
+          RemoveUnfoldedTacticCalls((stmt as BlockStmt).Body, state);
+        }
+      }
+    }
     private static void InsertCodeInternal(List<Statement> body, List<Statement> code, Statement tacticCall) {
       Contract.Requires<ArgumentNullException>(body != null, "body ");
       Contract.Requires<ArgumentNullException>(tacticCall != null, "'tacticCall");
@@ -257,6 +282,7 @@ namespace Microsoft.Dafny.Tacny {
               if(method.FullName == state.TargetMethod.FullName) {
                 destMd = (method as Method);
                 if(destMd != null) {
+                  destMd.CallsTactic = 0;
                   destMd.Body.Body.Clear();
                   destMd.Body.Body.AddRange(body.Body);
                 }
