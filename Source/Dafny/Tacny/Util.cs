@@ -31,15 +31,17 @@ namespace Microsoft.Dafny.Tacny {
     public static bool CheckTacticDef(ITactic tac, out string errMsg) {
       Contract.Requires(tac != null);
       foreach (var arg in tac.Ins) {
-        if (!IsTacticTypes(arg.Type.ToString())) {
-          errMsg = arg.Type.ToString() +
+        var name = arg.Type is UserDefinedType ? (arg.Type as UserDefinedType).Name : arg.Type.ToString();
+        if (!IsTacticTypes(name)) {
+          errMsg = name +
                    " is a valid type for tactic arguments.";
           return false;
         }
       }
       foreach (var arg in tac.Outs) {
-        if (!IsTacticTypes(arg.Type.ToString())) {
-          errMsg = arg.Type.ToString() +
+        var name = arg.Type is UserDefinedType ? (arg.Type as UserDefinedType).Name : arg.Type.ToString();
+        if (!IsTacticTypes(name)) {
+          errMsg = name +
                    " is a valid type for tactic return variables.";
           return false;
         }
@@ -68,7 +70,36 @@ namespace Microsoft.Dafny.Tacny {
       errMsg = "Can't find the tactic for " + Printer.StatementToString(stmt);
       return false;
     }
-    public static bool CheckTacticArgs(ITactic tac, ApplySuffix aps, out string errMsg)
+
+    public static bool CheckTypeTac(UserDefinedType type, string tacName, ProofState state, out string errMsg)
+    {
+      if (state.Tactics.ContainsKey(tacName)) {
+        var tac = state.Tactics[tacName];
+        if (type.TypeArgs.Count != tac.Ins.Count) {
+          errMsg = "The number of args doesn't match the tactic typ " + type;
+          return false;
+        }
+
+        for (var i = 0; i < tac.Ins.Count; i++) {
+          var name = tac.Ins[i].Type.ToString();
+
+          if (tac.Ins[i].Type.ToString() != type.TypeArgs[i].ToString()) {
+            errMsg = tacName + " doesn't match the tactic typ " + type;
+            return false;
+             
+          }
+        }
+        errMsg = "";
+        return true;
+
+      } else {
+        errMsg = tacName + " is not a tactic.";
+        return false;
+      }
+
+    }
+
+    public static bool CheckTacticArgs(ITactic tac, ApplySuffix aps, ProofState state, out string errMsg)
     {
       Contract.Requires(tac != null);
       Contract.Requires(aps != null);
@@ -81,16 +112,24 @@ namespace Microsoft.Dafny.Tacny {
 
       for (var i = 0; i < tac.Ins.Count; i++)
      {
-        switch (tac.Ins[i].Type.ToString()) {
+        var name = tac.Ins[i].Type is UserDefinedType ? 
+          (tac.Ins[i].Type as UserDefinedType).Name : tac.Ins[i].Type.ToString();
+
+        switch (name) {
           case "bool":
           case "int":
             if (tac.Ins[i].Type.ToString() != aps.Args[i].Type.ToString()) {
-              errMsg = "In arg[" + i + "], expect " + tac.Ins[i].Type.ToString() + " but " + aps.Args[i].Type.ToString() +
+              errMsg = "In arg[" + i + "], expect " + tac.Ins[i].Type + " but " + aps.Args[i].Type +
                        " is found";
               return false;
             }
             break;
           case "term":
+            break;
+          case "tac":
+            if (!CheckTypeTac(tac.Ins[i].Type as UserDefinedType, (aps.Args[i] as NameSegment).Name, state, out errMsg)) {
+              return false;
+            }
             break;
           default:
             break;

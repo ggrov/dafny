@@ -7324,7 +7324,8 @@ namespace Microsoft.Dafny
         builtIns.Bitwidths.Add(t.Width);
       } else if (type is BasicType) {
         // nothing to resolve
-      } else if(Tacny.Util.IsTacticTypes(type.ToString())) {
+      } else if(type is UserDefinedType &&
+        Tacny.Util.IsTacticTypes((type as UserDefinedType).Name)) {
       } else if (type is MapType) {
         var mt = (MapType)type;
         var errorCount = reporter.Count(ErrorLevel.Error);
@@ -11331,7 +11332,10 @@ namespace Microsoft.Dafny
           r = ResolveExprDotCall(expr.tok, receiver, member, expr.OptTypeArguments, opts.codeContext, allowMethodCall);
         }
 #endif
-      } else {
+      } else if (expr.Name == "tac") {
+       // in the case of type tac, do nothing
+      }
+      else {
         // ----- None of the above
         reporter.Error(MessageSource.Resolver, expr.tok, "Undeclared top-level type or type parameter: {0} (did you forget to qualify a name or declare a module import 'opened?')", expr.Name);
       }
@@ -11698,7 +11702,7 @@ namespace Microsoft.Dafny
       } else {
         // the member is a method
         var m = (Method)member;
-        if (!allowMethodCall) {
+        if (!allowMethodCall && !(m is ITactic)) {
           // it's a method and method calls are not allowed in the given context
           reporter.Error(MessageSource.Resolver, tok, "expression is not allowed to invoke a method ({0})", member.Name);
         }

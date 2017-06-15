@@ -73,7 +73,7 @@ namespace Microsoft.Dafny.Tacny{
       if (tacAps is UpdateStmt) {
         tactic = GetTactic(tacAps as UpdateStmt) as Tactic;
         aps  = ((ExprRhs)((UpdateStmt)tacAps).Rhss[0]).Expr as ApplySuffix;
-        if (!Util.CheckTacticArgs(tactic, aps, out errMsg)) {
+        if (!Util.CheckTacticArgs(tactic, aps, this, out errMsg)) {
           ReportTacticError(tacAps.Tok, errMsg);
         }
 
