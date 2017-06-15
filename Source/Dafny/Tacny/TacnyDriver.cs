@@ -104,7 +104,7 @@ namespace Microsoft.Dafny.Tacny
 
     private static bool GenerateResultCode0 (List<IEnumerable<ProofState>> branches)
     {
-      if (branches != null && branches.Count > 0) {
+      if (branches != null && branches.Count > 0 && branches[0] != null) {
         var result = branches[0].FirstOrDefault();
         if (result != null) {
           UpdateResultList(result.TopLevelTacApp,

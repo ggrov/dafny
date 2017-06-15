@@ -68,10 +68,15 @@ namespace Microsoft.Dafny.Tacny{
       Attributes attrs, tacticAttrs; // attrs from tactic call, and the attrs from tactic definitions.
       ApplySuffix aps = null;
       Tactic tactic = null;
+      string errMsg;
 
       if (tacAps is UpdateStmt) {
         tactic = GetTactic(tacAps as UpdateStmt) as Tactic;
         aps  = ((ExprRhs)((UpdateStmt)tacAps).Rhss[0]).Expr as ApplySuffix;
+        if (!Util.CheckTacticArgs(tactic, aps, out errMsg)) {
+          ReportTacticError(tacAps.Tok, errMsg);
+        }
+
         tacticAttrs = tactic.Attributes;
         attrs = (tacAps as UpdateStmt).Rhss[0].Attributes;
         if (tactic.Req != null) {

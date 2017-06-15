@@ -7306,9 +7306,8 @@ namespace Microsoft.Dafny
     private bool IsTacticTypes(string typeN){
       var ret = false;
       switch(typeN) {
-        case "Element":
-        case "Term":
-        case "Tactic":
+        case "term":
+        case "tac":
           ret = true;
           break;
         default:
@@ -8652,16 +8651,29 @@ namespace Microsoft.Dafny
       IToken firstEffectfulRhs = null;
       MethodCallInformation methodCallInfo = null;
       var j = 0;
+      string errMsg;
       if (IsTacticCall(update)) {
-        // ignore tactic application
+        // check the number of args
         if (codeContext is Method) {
-          if (Tacny.Util.CheckTacticArgs(currentClass, update)){
+          var opts = new ResolveOpts(codeContext, true);
+          var aps = ((ExprRhs)update.Rhss[0]).Expr as ApplySuffix;
+          if (aps == null) {
+            reporter.Error(MessageSource.Resolver, update, "Illformat for " + Printer.StatementToString(update), update.Lhss.Count, update.Rhss.Count);
+            return;
+          }
+          foreach (var arg in aps.Args) {
+            ResolveExpression(arg, opts);
+          }
+          if (Tacny.Util.CheckTacticArgsCount(currentClass, update, out errMsg)){
             ((Method) codeContext).CallsTactic++;
           } else
-            reporter.Error(MessageSource.Resolver, update, "The number of args doesn't match the tactic definition", update.Lhss.Count, update.Rhss.Count);
-        }
+          reporter.Error(MessageSource.Resolver, update, errMsg, update.Lhss.Count, update.Rhss.Count);
+        } else
+          reporter.Error(MessageSource.Resolver, update, "Only support tactic call in Method.", update.Lhss.Count, update.Rhss.Count);
+
         return;
       }
+
       foreach (var rhs in update.Rhss) {
         bool isEffectful;
         if (rhs is TypeRhs) {

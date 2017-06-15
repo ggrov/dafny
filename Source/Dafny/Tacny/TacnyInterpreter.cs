@@ -259,7 +259,11 @@ namespace Microsoft.Dafny.Tacny
       ProofState lastSucc = null; // the last verified state, for recovering over-backtracking
       var discarded = new List<Tuple<ProofState, VerifyResult>>(); // failed ps and its verified status
       ProofState proofState = rootState;
-      stack.Push(rootState.EvalStep().GetEnumerator());
+      var rootBranches = rootState.EvalStep();
+      if (rootBranches == null) {
+        yield break;
+      }
+      stack.Push(rootBranches.GetEnumerator());
 
       IEnumerator<ProofState> enumerator = null;
 

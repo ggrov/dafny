@@ -186,6 +186,8 @@ namespace Microsoft.Dafny.Tacny.Language{
     public virtual IEnumerable<ProofState> EvalStep(ProofState state0)
     {
       var statement = GetStmt();
+      if (statement == null)
+        return null;
       return TacnyInterpreter.EvalStmt(statement, state0);
     }
 

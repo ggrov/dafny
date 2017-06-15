@@ -14,19 +14,57 @@ using Microsoft.Dafny.Tacny.ArrayExtensions;
 namespace Microsoft.Dafny.Tacny {
 
   public static class Util {
-
-    public static bool CheckTacticArgs(ClassDecl curDecl, UpdateStmt stmt) {
-      if(curDecl != null) {
-        foreach(var member in curDecl.Members) {
+    public static bool CheckTacticArgsCount(ClassDecl curDecl, UpdateStmt stmt, out string errMsg) {
+      Contract.Requires(curDecl != null);
+      if (curDecl != null)
+        foreach (var member in curDecl.Members) {
           var tac = member as ITactic;
-          if(tac != null && tac.Name == GetSignature(stmt)) {
+          if (tac != null && tac.Name == GetSignature(stmt)) {
             var aps = ((ExprRhs)stmt.Rhss[0]).Expr as ApplySuffix;
-            return aps.Args.Count == tac.Ins.Count;
+            if (aps.Args.Count != tac.Ins.Count) {
+              errMsg = "The number of args doesn't match the tactic definition for "
+                 + Printer.StatementToString(stmt);
+              return false;
+            }
+            errMsg = "";
+            return true;
           }
         }
-      }
+      errMsg = "Can't find the tactic for " + Printer.StatementToString(stmt);
       return false;
     }
+    public static bool CheckTacticArgs(ITactic tac, ApplySuffix aps, out string errMsg)
+    {
+      Contract.Requires(tac != null);
+      Contract.Requires(aps != null);
+
+      if (aps.Args.Count != tac.Ins.Count) {
+        errMsg = "The number of args doesn't match the tactic definition for "
+            + Printer.ExprToString(aps);
+        return false;
+      }
+
+      for (var i = 0; i < tac.Ins.Count; i++)
+     {
+        switch (tac.Ins[i].Type.ToString()) {
+          case "bool":
+          case "int":
+            if (tac.Ins[i].Type.ToString() != aps.Args[i].Type.ToString()) {
+              errMsg = "In arg[" + i + "], expect " + tac.Ins[i].Type.ToString() + " but " + aps.Args[i].Type.ToString() +
+                       " is found";
+              return false;
+            }
+            break;
+          case "term":
+            break;
+          default:
+            break;
+        }
+      }
+      errMsg = "";
+      return true;
+    }
+
     public static Expression VariableToExpression(IVariable variable) {
       Contract.Requires(variable != null);
       return new NameSegment(variable.Tok, variable.Name, null);

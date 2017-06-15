@@ -703,8 +703,6 @@ TOKENS
   /* tokens for tactic */
   tactic = "tactic".
   inline = "inline".
-  element = "element".
-  term = "term".
 
 COMMENTS FROM "/*" TO "*/" NESTED
 COMMENTS FROM "//" TO lf
