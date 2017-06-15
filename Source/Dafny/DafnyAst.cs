@@ -3499,6 +3499,8 @@ namespace Microsoft.Dafny {
   //?Yuhui: consider to remove
   public interface ITactic {
     List<Formal> Ins { get; }
+    List<Formal> Outs { get; }
+
     string Name { get; }
   }
 
@@ -5005,6 +5007,7 @@ namespace Microsoft.Dafny {
     public override string WhatKind => "tactic";
 
     List<Formal> ITactic.Ins => base.Ins;
+     List<Formal> ITactic.Outs => base.Outs;
 
     public new string Name => base.Name;
 
@@ -5023,20 +5026,6 @@ namespace Microsoft.Dafny {
                 IToken signatureEllipsis)
         : base(tok, name, hasStaticKeyword, true, typeArgs, ins, outs, req, mod, ens, decreases, body, attributes, signatureEllipsis) {
     }
-  }
-
-  public class TacticFunction : Function, ITactic {
-    public override string WhatKind => "tactic function";
-
-    public List<Formal> Ins => base.Formals;
-    public new string Name => base.Name;
-
-    public TacticFunction(IToken tok, string name, bool hasStaticKeyword, bool isProtected, bool isGhost,
-                    List<TypeParameter> typeArgs, List<Formal> formals, Type resultType,
-                    List<Expression> req, List<FrameExpression> reads, List<Expression> ens, Specification<Expression> decreases,
-                    Expression body, Attributes attributes, IToken signatureEllipsis)
-        : base(tok, name, hasStaticKeyword, isProtected, true, typeArgs, formals, null, new BoolType(),
-               req, reads, ens, new Specification<Expression>(new List<Expression>(), null), body, attributes, signatureEllipsis) { }
   }
 
   public class Constructor : Method

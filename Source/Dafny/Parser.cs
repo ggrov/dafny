@@ -1530,7 +1530,6 @@ int StringToInt(string s, int defaultValue, string errString) {
 		Expression body = null;
 		bool isPredicate = false; bool isIndPredicate = false; bool isCoPredicate = false;
 		bool isFunctionMethod = false;
-		bool isFunctionTactic = false;
 		IToken bodyStart = Token.NoToken;
 		IToken bodyEnd = Token.NoToken;
 		IToken signatureEllipsis = null;
@@ -1543,16 +1542,11 @@ int StringToInt(string s, int defaultValue, string errString) {
 		}
 		if (la.kind == 41) {
 			Get();
-			if (la.kind == 65 || la.kind == 95) {
-				if (la.kind == 95) {
-					Get();
-					if (isTwoState) { SemErr(t, "twostate functions are supported only as a ghosts, not as function methods"); }
-					else { isFunctionMethod = true; }
-					
-				} else {
-					Get();
-					isFunctionTactic = true; 
-				}
+			if (la.kind == 95) {
+				Get();
+				if (isTwoState) { SemErr(t, "twostate functions are supported only as a ghosts, not as function methods"); }
+				else { isFunctionMethod = true; }
+				
 			}
 			AllowedDeclModifiers allowed = AllowedDeclModifiers.AlreadyGhost | AllowedDeclModifiers.Static;
 			if (!isTwoState) { allowed |= AllowedDeclModifiers.Protected; }
@@ -1710,9 +1704,6 @@ int StringToInt(string s, int defaultValue, string errString) {
 		} else if (isCoPredicate) {
 		  f = new CoPredicate(tok, id.val, dmod.IsStatic, dmod.IsProtected, typeArgs, formals,
 		                      reqs, reads, ens, body, attrs, signatureEllipsis);
-		} else if(isFunctionTactic) {
-		  f = new TacticFunction(tok, id.val, dmod.IsStatic, dmod.IsProtected, !isFunctionMethod, typeArgs, formals, returnType,
-		                   reqs, reads, ens, new Specification<Expression>(decreases, null), body, attrs, signatureEllipsis);
 		} else {
 		  f = new Function(tok, id.val, dmod.IsStatic, dmod.IsProtected, !isFunctionMethod, typeArgs, formals, result, returnType,
 		                   reqs, reads, ens, new Specification<Expression>(decreases, null), body, attrs, signatureEllipsis);

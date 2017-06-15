@@ -728,9 +728,6 @@ namespace Microsoft.Dafny
       } else if (f is TwoStateFunction) {
         return new TwoStateFunction(Tok(f.tok), newName, f.HasStaticKeyword, tps, formals, f.Result == null ? null : CloneFormal(f.Result), CloneType(f.ResultType),
           req, reads, ens, decreases, body, CloneAttributes(f.Attributes), null, f);
-	  } else if (f is TacticFunction) {
-        return new TacticFunction(Tok(f.tok), newName, f.HasStaticKeyword, f.IsProtected, f.IsGhost, tps, formals, CloneType(f.ResultType),
-            req, reads, ens, decreases, body, CloneAttributes(f.Attributes), null);
       } else {
         return new Function(Tok(f.tok), newName, f.HasStaticKeyword, f.IsProtected, f.IsGhost, tps, formals, f.Result == null ? null : CloneFormal(f.Result), CloneType(f.ResultType),
           req, reads, ens, decreases, body, CloneAttributes(f.Attributes), null, f);

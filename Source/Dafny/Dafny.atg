@@ -1637,7 +1637,6 @@ FunctionDecl<DeclModifierData dmod, bool isWithinAbstractModule, out Function/*!
      Expression body = null;
      bool isPredicate = false; bool isIndPredicate = false; bool isCoPredicate = false;
      bool isFunctionMethod = false;
-     bool isFunctionTactic = false;
      IToken bodyStart = Token.NoToken;
      IToken bodyEnd = Token.NoToken;
      IToken signatureEllipsis = null;
@@ -1651,7 +1650,6 @@ FunctionDecl<DeclModifierData dmod, bool isWithinAbstractModule, out Function/*!
     [   "method"                 (. if (isTwoState) { SemErr(t, "twostate functions are supported only as a ghosts, not as function methods"); }
                                   else { isFunctionMethod = true; }
                                .)
-	  | "tactic"                 (. isFunctionTactic = true; .)
     ]
     (. AllowedDeclModifiers allowed = AllowedDeclModifiers.AlreadyGhost | AllowedDeclModifiers.Static;
        if (!isTwoState) { allowed |= AllowedDeclModifiers.Protected; }
@@ -1773,9 +1771,6 @@ FunctionDecl<DeclModifierData dmod, bool isWithinAbstractModule, out Function/*!
      } else if (isCoPredicate) {
         f = new CoPredicate(tok, id.val, dmod.IsStatic, dmod.IsProtected, typeArgs, formals,
                             reqs, reads, ens, body, attrs, signatureEllipsis);
-     } else if(isFunctionTactic) {
-        f = new TacticFunction(tok, id.val, dmod.IsStatic, dmod.IsProtected, !isFunctionMethod, typeArgs, formals, returnType,
-                         reqs, reads, ens, new Specification<Expression>(decreases, null), body, attrs, signatureEllipsis);
      } else {
         f = new Function(tok, id.val, dmod.IsStatic, dmod.IsProtected, !isFunctionMethod, typeArgs, formals, result, returnType,
                          reqs, reads, ens, new Specification<Expression>(decreases, null), body, attrs, signatureEllipsis);
