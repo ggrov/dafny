@@ -14,6 +14,41 @@ using Microsoft.Dafny.Tacny.ArrayExtensions;
 namespace Microsoft.Dafny.Tacny {
 
   public static class Util {
+    public static bool IsTacticTypes(string typeN) {
+      var ret = false;
+      switch (typeN) {
+        case "bool":
+        case "int":
+        case "term":
+        case "tac":
+          ret = true;
+          break;
+        default:
+          break;
+      }
+      return ret;
+    }
+    public static bool CheckTacticDef(ITactic tac, out string errMsg) {
+      Contract.Requires(tac != null);
+      foreach (var arg in tac.Ins) {
+        if (!IsTacticTypes(arg.Type.ToString())) {
+          errMsg = arg.Type.ToString() +
+                   " is a valid type for tactic arguments.";
+          return false;
+        }
+      }
+      foreach (var arg in tac.Outs) {
+        if (!IsTacticTypes(arg.Type.ToString())) {
+          errMsg = arg.Type.ToString() +
+                   " is a valid type for tactic return variables.";
+          return false;
+        }
+      }
+
+      errMsg = "";
+      return true;
+    }
+
     public static bool CheckTacticArgsCount(ClassDecl curDecl, UpdateStmt stmt, out string errMsg) {
       Contract.Requires(curDecl != null);
       if (curDecl != null)

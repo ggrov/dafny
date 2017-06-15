@@ -4311,6 +4311,9 @@ namespace Microsoft.Dafny
     #region CheckTypeInference
     private void CheckTypeInference_Member(MemberDecl member) {
       if (member is ITactic) {
+        string msg;
+        if (!Tacny.Util.CheckTacticDef(member as ITactic, out msg))
+          reporter.Error(MessageSource.Resolver, member.tok, msg);
         return;
       } else if (member is ConstantField) {
         var field = (ConstantField) member;
@@ -7303,19 +7306,6 @@ namespace Microsoft.Dafny
       }
     }
 
-    private bool IsTacticTypes(string typeN){
-      var ret = false;
-      switch(typeN) {
-        case "term":
-        case "tac":
-          ret = true;
-          break;
-        default:
-          break;
-      }
-      return ret;
-    }
-
     /// <summary>
     /// See ResolveTypeOption for a description of the option/defaultTypeArguments parameters.
     /// One more thing:  if "allowDanglingDotName" is true, then if the resolution would have produced
@@ -7334,8 +7324,7 @@ namespace Microsoft.Dafny
         builtIns.Bitwidths.Add(t.Width);
       } else if (type is BasicType) {
         // nothing to resolve
-      } else if(IsTacticTypes(type.ToString())) {
-
+      } else if(Tacny.Util.IsTacticTypes(type.ToString())) {
       } else if (type is MapType) {
         var mt = (MapType)type;
         var errorCount = reporter.Count(ErrorLevel.Error);
