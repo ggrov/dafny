@@ -12,6 +12,7 @@ namespace Microsoft.Dafny.Tacny
 {
   public class TacnyInterpreter
   {
+    public const int VerifyNProofState = 5;
     public enum VerifyResult
     {
       Unresolved, // failed to resolve
@@ -226,7 +227,7 @@ namespace Microsoft.Dafny.Tacny
     }
 
     private static int _branchCount = 0;
-    public static VerifyResult VerifyState(List<ProofState> states) {
+    public static List<VerifyResult> VerifyState(List<ProofState> states) {
 
       _branchCount += states.Count;
       Console.WriteLine("Branch Count: " + _branchCount);
@@ -237,25 +238,29 @@ namespace Microsoft.Dafny.Tacny
 
       for(var i = 0; i < states.Count; i++) {
         var state = states[i];
-        if(state.IsTimeOut()) {
+        if (state.IsTimeOut()){
           state.GetErrHandler().ErrType = TacticBasicErr.ErrorType.Timeout;
           res.Add(VerifyResult.Failed);
+        } else {
+          var prog0 = Util.GenerateResolvedProg(state);
+          if (prog0 == null || state.GetErrHandler().Reporter.Count(ErrorLevel.Error) != 0){
+            res.Add(VerifyResult.Unresolved);
+          } else{
+            //set as verified just for now, will be updated later
+            res.Add(VerifyResult.Verified);
+            idxs.Add(i);
+            newStateList.Add(state);
+          }
         }
-        var prog0 = Util.GenerateResolvedProg(state);
-        if(prog0 == null || state.GetErrHandler().Reporter.Count(ErrorLevel.Error) != 0) {
-          res.Add(VerifyResult.Unresolved);
-        }
-        //set as verified, will be updated later
-        res.Add(VerifyResult.Verified);
-        idxs.Add(i);
-        newStateList.Add(state);
       }
-      
+
+      if (newStateList.Count == 0)
+        return res;
 
       var prog = Util.GenerateResolvedProg(newStateList);
 
-      // var result = Util.VerifyResolvedProg(state, prog, null);
-      return VerifyResult.Verified;
+      Util.VerifyResolvedProg(states[0], prog, res, idxs, null);
+      return res;
     }
 
     /// <summary>
@@ -268,7 +273,7 @@ namespace Microsoft.Dafny.Tacny
       var stack = new Stack<IEnumerator<ProofState>>();
       ProofState lastSucc = null; // the last verified state, for recovering over-backtracking
       var discarded = new List<Tuple<ProofState, VerifyResult>>(); // failed ps and its verified status
-      ProofState proofState = rootState;
+      List<ProofState> proofState = new List <ProofState> () {rootState};
       var rootBranches = rootState.EvalStep();
       if (rootBranches == null) {
         yield break;
@@ -292,10 +297,12 @@ namespace Microsoft.Dafny.Tacny
         }
 
         if (enumerator == null || !enumerator.MoveNext()) {
-          // check if current is valid. a enumerator is empty when current is invalid and MoveNext is null
+          // check if current is valid, and the enumerator is empty when current is invalid and MoveNext is null
           if (enumerator != null && wasNull) {
             //Console.WriteLine("Null eval result is detected !");
-            discarded.Add(new Tuple<ProofState, VerifyResult>(proofState, VerifyResult.Unresolved));
+            foreach (var state in proofState){
+              discarded.Add(new Tuple<ProofState, VerifyResult>(state, VerifyResult.Unresolved));
+            }
           }
 
           enumerator = stack.Pop();
@@ -303,57 +310,83 @@ namespace Microsoft.Dafny.Tacny
             continue;
           }
         }
-        proofState = enumerator.Current;
-        //set the backtrack list back to the frame, this will udpate the backtrack count for the parent one.
-        if (backtrackList != null)
-          proofState.SetBackTrackCount(backtrackList);
-        backtrackList = proofState.GetBackTrackCount();
 
-        if (proofState.NeedVerify && proofState.GetVerifyN() > 1) {
-         proofState.DecreaseVerifyN();
-         proofState.NeedVerify = false;
+        var stateCount = 0;
+        proofState.Clear();
+        while (stateCount <= VerifyNProofState){
+          var current = enumerator.Current;
+          proofState.Add(current);
+          if(backtrackList != null)
+            current.SetBackTrackCount(backtrackList);
+          if(current.NeedVerify && proofState[0].GetVerifyN() > 1) {
+            current.DecreaseVerifyN();
+            current.NeedVerify = false;
+          }
+          if(!enumerator.MoveNext())
+            break;
         }
+
+        //should at alease one state in the list, use [0] as a typical state;
+        var rep = proofState[0];
+        backtrackList = rep.GetBackTrackCount();
+
+        List<VerifyResult> ress = null;
+        List<bool> returned = null;
+
         //check if any new added coded reuqires to call verifier, or reach the last line of code
-        if ((proofState.NeedVerify && proofState.GetVerifyN() == 1)|| proofState.IsCurFrameEvaluated()) {
-          proofState.ResetVerifyN();
-          proofState.NeedVerify = false;
+        if ((rep.NeedVerify && rep.GetVerifyN() == 1)|| rep.IsCurFrameEvaluated()) {
+          foreach(var s in proofState) {
+            s.ResetVerifyN();
+            s.NeedVerify = false;
+          }
+
           bool backtracked = false;
+          ress = VerifyState(proofState);
+          returned = new List<bool>();
 
-          switch (VerifyState(new List<ProofState>() {proofState})) {
-            case VerifyResult.Verified:
-              //check if the frame are evaluated, as well as requiests for backtraking 
-              proofState.MarkCurFrameAsTerminated(true, out backtracked);
-              if (backtracked) {
-                lastSucc = proofState;
-                discarded.Add(new Tuple<ProofState, VerifyResult>(proofState, VerifyResult.Backtracked));
-              }
-
-              if (proofState.IsTerminated()) {
-                yield return proofState;
-                yield break;
-              }
-
-              break;
-            case VerifyResult.Failed:
-              if (proofState.IsCurFrameEvaluated()) {
-                proofState.MarkCurFrameAsTerminated(false, out backtracked);
-                if (backtracked) {
-                  lastSucc = proofState;
-                  discarded.Add(new Tuple<ProofState, VerifyResult>(proofState, VerifyResult.Backtracked));
+          for(var i = 0; i < ress.Count; i++) {
+            var res = ress[i];
+            var ret = false;
+            switch(res) {
+              case VerifyResult.Verified:
+                //check if the frame are evaluated, as well as requiests for backtraking 
+                proofState[i].MarkCurFrameAsTerminated(true, out backtracked);
+                if(backtracked) {
+                  lastSucc = proofState[i];
+                  discarded.Add(new Tuple<ProofState, VerifyResult>(proofState[i], VerifyResult.Backtracked));
                 }
-                if (proofState.IsTerminated()) {
-                  yield return proofState;
+
+                if(proofState[i].IsTerminated()) {
+                  ret = true;
+                  yield return proofState[i];
                   yield break;
                 }
-              }
-              break;
-            case VerifyResult.Unresolved:
-              //Console.WriteLine("in unresolved");
-              discarded.Add(new Tuple<ProofState, VerifyResult>(proofState, VerifyResult.Unresolved));
-              //discard current branch if fails to resolve
-              continue;
-            default:
-              throw new ArgumentOutOfRangeException();
+                returned.Add(ret);
+                break;
+              case VerifyResult.Failed:
+                if(proofState[i].IsCurFrameEvaluated()) {
+                  proofState[i].MarkCurFrameAsTerminated(false, out backtracked);
+                  if(backtracked) {
+                    lastSucc = proofState[i];
+                    discarded.Add(new Tuple<ProofState, VerifyResult>(proofState[i], VerifyResult.Backtracked));
+                  }
+                  if(proofState[i].IsTerminated()) {
+                    ret = true;
+                    yield return proofState[i];
+                    yield break;
+                  }
+                }
+                returned.Add(ret);
+                break;
+              case VerifyResult.Unresolved:
+                //Console.WriteLine("in unresolved");
+                discarded.Add(new Tuple<ProofState, VerifyResult>(proofState[i], VerifyResult.Unresolved));
+                //discard current branch if fails to resolve
+                returned.Add(ret);
+                continue;
+              default:
+                throw new ArgumentOutOfRangeException();
+            }
           }
         }
         /*
@@ -361,26 +394,36 @@ namespace Microsoft.Dafny.Tacny
      * if so, do nothing will dischard this branch and continue with the next one
      * otherwise, continue to evaluate the next stmt
      */
-        if (!proofState.IsCurFrameEvaluated()) {
+
+        rep = proofState[0];
+
+        if(!rep.IsCurFrameEvaluated()) {
           //push the current one to the stack
           stack.Push(enumerator);
           //move to the next stmt
-          enumerator = (proofState.EvalStep().GetEnumerator());
-        } else {
-          backtrackList = proofState.GetBackTrackCount(); // update the current bc count to the list
-          if (proofState.InAsserstion) {
-            proofState.GetErrHandler().ErrType = TacticBasicErr.ErrorType.Assertion;
-            var patchRes = proofState.ApplyPatch();
-            if (patchRes != null) {
-              stack.Push(enumerator);
-              enumerator = patchRes.GetEnumerator();
+          for(var i = 0; i < proofState.Count ; i++) {
+            if(returned == null || !returned[i]) {
+              stack.Push(proofState[i].EvalStep().GetEnumerator());
             }
-          } else
-            proofState.GetErrHandler().ErrType = TacticBasicErr.ErrorType.NotProved;
-
-          discarded.Add(new Tuple<ProofState, VerifyResult>(proofState, VerifyResult.Failed));
+          }
+          enumerator = stack.Pop();
+        } else {
+          backtrackList = rep.GetBackTrackCount(); // update the current bc count to the list
+          for(var i = 0; i < proofState.Count; i++) {
+            if(returned == null || !returned[i]) {
+              if(proofState[i].InAsserstion) {
+                proofState[i].GetErrHandler().ErrType = TacticBasicErr.ErrorType.Assertion;
+                var patchRes = proofState[i].ApplyPatch();
+                if(patchRes != null) {
+                  stack.Push(enumerator);
+                  enumerator = patchRes.GetEnumerator();
+                }
+              } else
+              proofState[i].GetErrHandler().ErrType = TacticBasicErr.ErrorType.NotProved;
+              discarded.Add(new Tuple<ProofState, VerifyResult>(proofState[i], VerifyResult.Failed));
+            }
+          }
         }
-
       }
       //check if over-backchecked
       if (backtrackList != null && backtrackList.Exists(x => x > 0)) {
@@ -395,7 +438,6 @@ namespace Microsoft.Dafny.Tacny
                               : backtrackList.Last() + 1) + " requests, return the last one.");
           yield return lastSucc;
         }
-
       } else {
         // no result is successful
         ProofState s0;

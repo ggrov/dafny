@@ -11,27 +11,23 @@ ensures false
 lemma ltest(d : Dummy)
  ensures false
 {
-   assert true;assert true;assume false;
+  tac(d);
 }
 
 lemma ltest2(d : Dummy)
- ensures true
+ ensures false
 {
-   assert true;
+
+tac(d);
 }
 
-tactic tac(b: Element)
+tactic tac(b: term)
 {
-
-	//     assert true;
-	assert true;
 	assert true;
 	dummyTac(b);
-
-	
 }
 
-tactic dummyTac (c: Element)
+tactic dummyTac (c: term)
 {
 	assume false;
 }

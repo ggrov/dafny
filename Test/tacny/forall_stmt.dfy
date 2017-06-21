@@ -11,7 +11,7 @@ ensures forall x :: P(x)
 
 tactic {:partial} test(){
   
-  tvar p :| p in tactic.ensures();
+  tvar p :| p in tactic.ensures;
   //tvar p := forall x :: P(x);
 
   tactic forall {:vars z} p

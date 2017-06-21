@@ -381,7 +381,6 @@ namespace Microsoft.Dafny.Tacny {
     public static Program GenerateResolvedProg(List<ProofState> states){
       var state = states[0];
       var prog = states[0].GetDafnyProgram();
-      var r = new Resolver(prog);
       
       List<BlockStmt> bodies = new List<BlockStmt>();
       for(var i = 0; i < states.Count; i++) {
@@ -394,66 +393,89 @@ namespace Microsoft.Dafny.Tacny {
         bodies.Add(body0);
       }
 
-
       Method destMd = null;
+      DefaultClassDecl defaultClassDecl = null;
       var body = bodies[0];
       foreach(var m in prog.DefaultModuleDef.TopLevelDecls) {
         if(m.WhatKind == "class") {
-          var defaultClassDecl = m as DefaultClassDecl;
-          if(defaultClassDecl != null)
-            foreach(var method in defaultClassDecl.Members) {
-              if(method.Name == state.TargetMethod.Name) {
+          var classDecl = m as DefaultClassDecl;
+          if (classDecl != null){
+            foreach (var method in classDecl.Members){
+              if (method.Name == state.TargetMethod.Name){
                 destMd = (method as Method);
-                if(destMd != null) {
-                  destMd.CallsTactic = 0;
-                  destMd.Body.Body.Clear();
-                  destMd.Body.Body.AddRange(body.Body);
-                }
-              }// if some other method has tactic call, then empty the body
-            }
-        }
-      }
-
-      /*
-       
-             foreach(var m in prog.DefaultModuleDef.TopLevelDecls) {
-        if(m.WhatKind == "class") {
-          var defaultClassDecl = m as DefaultClassDecl;
-          if(defaultClassDecl != null)
-            foreach(var method in defaultClassDecl.Members) {
-              if((method.Name != state.TargetMethod.Name) && (method.CallsTactic != 0) {
+                defaultClassDecl = classDecl;
+              } else if(!(method is Tactic)) {
                 method.CallsTactic = 0;
                 var o = method as Method;
                 o?.Body.Body.Clear();
                 SetVerifyFalseAttr(method);
+              } 
+            }
+          }
+        }
+      }
 
-              } else {
-                //set other memberdecl as verify false
+      for (var i = 0; i < bodies.Count-1; i++){
+        var dest = destMd.Copy();
+        dest.CallsTactic = 0;
+        dest.Body.Body.Clear();
+        dest.Body.Body.AddRange(bodies[i].Body);
+        dest.Name = dest.Name + "_tacny_code_" + i;
+        defaultClassDecl.Members.Add(dest);
+        dest.Body.Tok.line = TacnyDriver.TacticCodeTokLine - i - 1;
+      }
+      destMd.CallsTactic = 0;
+      destMd.Body.Body.Clear();
+      destMd.Body.Body.AddRange(bodies[bodies.Count-1].Body);
+      destMd.Name = destMd.Name + "_tacny_code_" + (bodies.Count - 1);
+      destMd.Body.Tok.line = TacnyDriver.TacticCodeTokLine - bodies.Count;
+
+      var r = new Resolver(prog);
+      r.ResolveProgram(prog);
+
+      return prog;
+    }
+
+    public static Program GenerateResolvedProg(ProofState state) {
+
+      var prog = state.GetDafnyProgram();
+
+
+        var result = new Dictionary<Statement, List<Statement>>
+        {
+          { state.TopLevelTacApp, state.GetGeneratedCode().Copy()}
+        };
+        var body = InsertCode(state, result);
+
+      Method destMd = null;
+      DefaultClassDecl defaultClassDecl = null;
+
+      foreach(var m in prog.DefaultModuleDef.TopLevelDecls) {
+        if(m.WhatKind == "class") {
+          var classDecl = m as DefaultClassDecl;
+          if(classDecl != null) {
+            foreach(var method in classDecl.Members) {
+              if(method.Name == state.TargetMethod.Name) {
+                destMd = (method as Method);
+                defaultClassDecl = classDecl;
+              } else if(!(method is Tactic)) {
+                method.CallsTactic = 0;
+                var o = method as Method;
+                o?.Body.Body.Clear();
                 SetVerifyFalseAttr(method);
               }
             }
+          }
         }
       }
-       */
-      //
-#if _TACTIC_DEBUG_L1
-      Console.WriteLine("********************* Tactic in : " + destMd + " *****************");
-      var printer = new Printer(Console.Out);
-      //printer.PrintProgram(prog, false);
-      foreach(var stmt in state.GetGeneratedCode()) {
-        printer.PrintStatement(stmt, 0);
-        Console.WriteLine("");
-      }
-      Console.WriteLine("********************* Stmts END *****************");
-#endif
-      //
 
-      if(destMd != null) {
-        destMd.CallsTactic = 0;
-        r.SetCurClass(destMd.EnclosingClass as ClassDecl);
-        r.ResolveMethodBody(destMd, state.GetDafnyProgram().DefaultModuleDef.Name);
-      }
 
+      destMd.CallsTactic = 0;
+      destMd.Body.Body.Clear();
+      destMd.Body.Body.AddRange(body.Body);
+
+      var r = new Resolver(prog);
+      r.ResolveProgram(prog);
 
       if(prog.reporter.Count(ErrorLevel.Error) != 0) {
         state.GetErrHandler().Reporter = prog.reporter;
@@ -465,7 +487,7 @@ namespace Microsoft.Dafny.Tacny {
         return prog;
     }
 
-    public static Program GenerateResolvedProg(ProofState state) {
+    public static Program GenerateResolvedProg0(ProofState state) {
       var prog = state.GetDafnyProgram();
       var r = new Resolver(prog);
       r.ResolveProgram(prog);
@@ -535,15 +557,17 @@ namespace Microsoft.Dafny.Tacny {
 
 
     private static int _verificationCount = 0;
-    public static bool VerifyResolvedProg(ProofState state, Program program, ErrorReporterDelegate er) {
+    public static void VerifyResolvedProg(ProofState state, Program program,
+      List<TacnyInterpreter.VerifyResult> res, List<int> idx,
+      ErrorReporterDelegate er) {
       Contract.Requires<ArgumentNullException>(program != null);
-      
-     #if _TACTIC_DEBUG_L2
-            var printer = new Printer(Console.Out);
-            Console.WriteLine("*********************Verifying Tactic Generated Prog*****************");
-            printer.PrintProgram(program, true);
-            Console.WriteLine("\n*********************Prog END*****************");
-     #endif
+
+#if _TACTIC_DEBUG_L1
+      var printer = new Printer(Console.Out);
+      Console.WriteLine("*********************Verifying Tactic Generated Prog*****************");
+      printer.PrintProgram(program, true);
+      Console.WriteLine("\n*********************Prog END*****************");
+#endif
 
       _verificationCount++;
       Console.WriteLine("Verfication Count: " + _verificationCount);
@@ -556,18 +580,16 @@ namespace Microsoft.Dafny.Tacny {
         PipelineOutcome tmp = BoogiePipeline(prog.Item2,
           new List<string> { program.Name }, program.Name, er,
           out stats, out errorList, program);
-        if(errorList.Count != 0) {
-          foreach (var err in errorList) {
-            // exists an error byond the current tactic, so the current tactic goes through
-            if (err.Tok.pos > state.TopLevelTacApp.Tok.pos) {
-              state.GetErrHandler().ErrorList = errorList;
-              return true;
-            }
+
+        var curIdx = -1;
+        for(var i = 0; i < errorList.Count; i++) {
+          var err = errorList[i];
+          if(err.Tok.line < TacnyDriver.TacticCodeTokLine) {
+            curIdx = 0 - err.Tok.line - 2;
+            res[curIdx] = TacnyInterpreter.VerifyResult.Failed;
           }
-          return false;
         }
       }
-      return true;
     }
 
     /// <summary>
