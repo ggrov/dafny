@@ -226,26 +226,36 @@ namespace Microsoft.Dafny.Tacny
     }
 
     private static int _branchCount = 0;
-    public static VerifyResult VerifyState(ProofState state) {
-      _branchCount++;
+    public static VerifyResult VerifyState(List<ProofState> states) {
+
+      _branchCount += states.Count;
       Console.WriteLine("Branch Count: " + _branchCount);
 
-      if (state.IsTimeOut()) {
-        state.GetErrHandler().ErrType = TacticBasicErr.ErrorType.Timeout;
-        return VerifyResult.Failed;
-      }
+      List<VerifyResult> res = new List<VerifyResult>();
+      List<int> idxs = new List<int>();
+      List<ProofState> newStateList = new List<ProofState>();
 
-      var prog = Util.GenerateResolvedProg(state);
-      if (prog == null || state.GetErrHandler().Reporter.Count(ErrorLevel.Error) != 0) {
-        return VerifyResult.Unresolved;
+      for(var i = 0; i < states.Count; i++) {
+        var state = states[i];
+        if(state.IsTimeOut()) {
+          state.GetErrHandler().ErrType = TacticBasicErr.ErrorType.Timeout;
+          res.Add(VerifyResult.Failed);
+        }
+        var prog0 = Util.GenerateResolvedProg(state);
+        if(prog0 == null || state.GetErrHandler().Reporter.Count(ErrorLevel.Error) != 0) {
+          res.Add(VerifyResult.Unresolved);
+        }
+        //set as verified, will be updated later
+        res.Add(VerifyResult.Verified);
+        idxs.Add(i);
+        newStateList.Add(state);
       }
+      
 
-      var result = Util.VerifyResolvedProg(state, prog, null);
-      if (result)
-        return VerifyResult.Verified;
-      else {
-        return VerifyResult.Failed;
-      }
+      var prog = Util.GenerateResolvedProg(newStateList);
+
+      // var result = Util.VerifyResolvedProg(state, prog, null);
+      return VerifyResult.Verified;
     }
 
     /// <summary>
@@ -309,7 +319,7 @@ namespace Microsoft.Dafny.Tacny
           proofState.NeedVerify = false;
           bool backtracked = false;
 
-          switch (VerifyState(proofState)) {
+          switch (VerifyState(new List<ProofState>() {proofState})) {
             case VerifyResult.Verified:
               //check if the frame are evaluated, as well as requiests for backtraking 
               proofState.MarkCurFrameAsTerminated(true, out backtracked);
