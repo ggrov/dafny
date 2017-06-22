@@ -8645,6 +8645,7 @@ namespace Microsoft.Dafny
       if (IsTacticCall(update)) {
         // check the number of args
         if (codeContext is Method) {
+          /*TODO:LYH 
           var opts = new ResolveOpts(codeContext, true);
           var aps = ((ExprRhs)update.Rhss[0]).Expr as ApplySuffix;
           if (aps == null) {
@@ -8654,6 +8655,7 @@ namespace Microsoft.Dafny
           foreach (var arg in aps.Args) {
             ResolveExpression(arg, opts);
           }
+          */
           if (Tacny.Util.CheckTacticArgsCount(currentClass, update, out errMsg)){
             ((Method) codeContext).CallsTactic++;
           } else

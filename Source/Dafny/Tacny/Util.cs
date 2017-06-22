@@ -1,5 +1,5 @@
 ﻿#define _TACTIC_DEBUG_L1
-///#define _TACTIC_DEBUG_L2
+//#define _TACTIC_DEBUG_L2
 
 
 using System;
@@ -385,11 +385,15 @@ namespace Microsoft.Dafny.Tacny {
       List<BlockStmt> bodies = new List<BlockStmt>();
       for(var i = 0; i < states.Count; i++) {
         var state0 = states[i];
+        var code = state0.GetGeneratedCode().Copy();
+        foreach(var c in code)
+          c.Tok.line = TacnyDriver.TacticCodeTokLine - i - 1;
         var result = new Dictionary<Statement, List<Statement>>
         {
           { state0.TopLevelTacApp, state0.GetGeneratedCode().Copy()}
         };
         var body0 = InsertCode(state0, result);
+        SetStatementTokLine(TacnyDriver.TacticCodeTokLine - i - 1, body0);
         bodies.Add(body0);
       }
 
@@ -555,7 +559,21 @@ namespace Microsoft.Dafny.Tacny {
         return prog;
     }
 
-
+    private static void SetStatementTokLine (int line, Statement s) {
+      if (s is BlockStmt) {
+        var s0 = s as BlockStmt;
+        s0.Tok.line = line;
+        foreach(var ss in s0.Body)
+          SetStatementTokLine(line, ss);
+      } else if (s is MatchStmt) {
+        var s0 = s as MatchStmt;
+        foreach(var ss in s0.Cases) {
+          ss.tok.line = line;
+          foreach(var body in ss.Body)
+            SetStatementTokLine(line, body);
+        }
+      } else s.Tok.line = line;
+    }
     private static int _verificationCount = 0;
     public static void VerifyResolvedProg(ProofState state, Program program,
       List<TacnyInterpreter.VerifyResult> res, List<int> idx,
@@ -586,7 +604,7 @@ namespace Microsoft.Dafny.Tacny {
           var err = errorList[i];
           if(err.Tok.line < TacnyDriver.TacticCodeTokLine) {
             curIdx = 0 - err.Tok.line - 2;
-            res[curIdx] = TacnyInterpreter.VerifyResult.Failed;
+            res[idx[curIdx]] = TacnyInterpreter.VerifyResult.Failed;
           }
         }
       }

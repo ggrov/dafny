@@ -12,7 +12,7 @@ namespace Microsoft.Dafny.Tacny
 {
   public class TacnyInterpreter
   {
-    public const int VerifyNProofState = 5;
+    public const int VerifyNProofState = 10;
     public enum VerifyResult
     {
       Unresolved, // failed to resolve
@@ -313,9 +313,10 @@ namespace Microsoft.Dafny.Tacny
 
         var stateCount = 0;
         proofState.Clear();
-        while (stateCount <= VerifyNProofState){
+        while (stateCount < VerifyNProofState){
           var current = enumerator.Current;
           proofState.Add(current);
+          stateCount++;
           if(backtrackList != null)
             current.SetBackTrackCount(backtrackList);
           if(current.NeedVerify && proofState[0].GetVerifyN() > 1) {
