@@ -55,6 +55,61 @@ namespace Microsoft.Dafny.Tacny{
       FillStaticState(program);
     }
 
+    //get the unresoved version of this tactic application stmt
+    internal UpdateStmt GetTacticAppStmt(UpdateStmt tacAps) {
+      var prog = this._original;
+      Method destMd = null;
+      foreach(var m in prog.DefaultModuleDef.TopLevelDecls) {
+        if(m.WhatKind == "class") {
+          var classDecl = m as DefaultClassDecl;
+          if(classDecl != null) {
+            foreach(var method in classDecl.Members) {
+              if(method.Name == TargetMethod.Name) {
+                destMd = (method as Method);
+                break;
+              }
+            }
+            if (destMd != null){
+              break;
+            }
+          }
+        }
+      }
+
+      return GetTacticAppStmt(tacAps.Tok.pos, destMd.Body);
+    }
+
+    internal UpdateStmt GetTacticAppStmt(int pos, BlockStmt stmts) {
+      if(stmts.Body == null)
+        return null;
+      return GetTacticAppStmt(pos, stmts.Body);
+    }
+    internal UpdateStmt GetTacticAppStmt(int pos, List<Statement> stmts) {
+      UpdateStmt ret = null;
+      foreach(var stmt in stmts) {
+        if(stmt is UpdateStmt && stmt.Tok.pos == pos)
+          return stmt as UpdateStmt;
+        else if(stmt is BlockStmt) {
+          ret = GetTacticAppStmt(pos, stmt as BlockStmt);
+        } else if(stmt is MatchStmt) {
+          var match = stmt as MatchStmt;
+          foreach(var cases in match.Cases) {
+            ret = GetTacticAppStmt(pos, cases.Body);
+            if(ret != null)
+              break;
+          }
+        } else if(stmt is ForallStmt) {
+          //TODO
+        }
+        else if (stmt is AssertStmt && (stmt as AssertStmt).Proof != null) {
+            ret = GetTacticAppStmt(pos, (stmt as AssertStmt).Proof);
+          }
+        if(ret != null)
+          break;
+      }
+
+      return ret;
+    }
     /// <summary>
     /// Initialize a new tactic state
     /// </summary>
@@ -76,6 +131,10 @@ namespace Microsoft.Dafny.Tacny{
         if (!Util.CheckTacticArgs(tactic, aps, this, out errMsg)) {
           ReportTacticError(tacAps.Tok, errMsg);
         }
+        //get the unresoved stmt
+        tacAps = GetTacticAppStmt((UpdateStmt)tacAps);
+        aps = ((ExprRhs)((UpdateStmt)tacAps).Rhss[0]).Expr as ApplySuffix;
+
 
         tacticAttrs = tactic.Attributes;
         attrs = (tacAps as UpdateStmt).Rhss[0].Attributes;

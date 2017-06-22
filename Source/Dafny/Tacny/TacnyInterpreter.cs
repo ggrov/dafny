@@ -12,7 +12,7 @@ namespace Microsoft.Dafny.Tacny
 {
   public class TacnyInterpreter
   {
-    public const int VerifyNProofState = 10;
+    public const int VerifyNProofState = 5;
     public enum VerifyResult
     {
       Unresolved, // failed to resolve
@@ -28,7 +28,6 @@ namespace Microsoft.Dafny.Tacny
       Contract.Requires<ArgumentNullException>(state != null, "state");
       Contract.Requires(tacticApplication is UpdateStmt || tacticApplication is InlineTacticBlockStmt);
 
-      ProofState ret;
       IEnumerable<ProofState> branches;
 
       if (state.InitState(tacticApplication, variables, ifPartial) == false)

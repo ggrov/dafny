@@ -118,8 +118,9 @@ namespace Microsoft.Dafny.Tacny {
         switch (name) {
           case "bool":
           case "int":
-            if (tac.Ins[i].Type.ToString() != aps.Args[i].Type.ToString()) {
-              errMsg = "In arg[" + i + "], expect " + tac.Ins[i].Type + " but " + aps.Args[i].Type +
+            if (!(aps.Args[i] is NameSegment) ||
+              tac.Ins[i].Type.ToString() != aps.Args[i].Type.ToString()) {
+            errMsg = "In arg[" + i + "], expect " + tac.Ins[i].Type + " but " + aps.Args[i] +
                        " is found";
               return false;
             }
@@ -127,7 +128,8 @@ namespace Microsoft.Dafny.Tacny {
           case "term":
             break;
           case "tac":
-            if (!CheckTypeTac(tac.Ins[i].Type as UserDefinedType, (aps.Args[i] as NameSegment).Name, state, out errMsg)) {
+            if (!CheckTypeTac(tac.Ins[i].Type as UserDefinedType, 
+              (aps.Args[i] as NameSegment).Name, state, out errMsg)) {
               return false;
             }
             break;
@@ -411,7 +413,8 @@ namespace Microsoft.Dafny.Tacny {
               } else if(!(method is Tactic)) {
                 method.CallsTactic = 0;
                 var o = method as Method;
-                o?.Body.Body.Clear();
+                if(o != null && o.Body != null)
+                  o?.Body.Body.Clear();
                 SetVerifyFalseAttr(method);
               } 
             }
@@ -465,7 +468,8 @@ namespace Microsoft.Dafny.Tacny {
               } else if(!(method is Tactic)) {
                 method.CallsTactic = 0;
                 var o = method as Method;
-                o?.Body.Body.Clear();
+                if(o != null && o.Body != null)
+                  o?.Body.Body.Clear();
                 SetVerifyFalseAttr(method);
               }
             }
@@ -587,27 +591,38 @@ namespace Microsoft.Dafny.Tacny {
       Console.WriteLine("\n*********************Prog END*****************");
 #endif
 
+
       _verificationCount++;
       Console.WriteLine("Verfication Count: " + _verificationCount);
 
-      var boogieProg = Translator.Translate(program, program.reporter, null);
+      IEnumerable<Tuple<string, Bpl.Program>> boogieProg;
 
-      foreach(var prog in boogieProg) {
-        PipelineStatistics stats;
-        List<ErrorInformation> errorList;
-        PipelineOutcome tmp = BoogiePipeline(prog.Item2,
-          new List<string> { program.Name }, program.Name, er,
-          out stats, out errorList, program);
+      try {
+        boogieProg = Translator.Translate(program, program.reporter, null);
 
-        var curIdx = -1;
-        for(var i = 0; i < errorList.Count; i++) {
-          var err = errorList[i];
-          if(err.Tok.line < TacnyDriver.TacticCodeTokLine) {
-            curIdx = 0 - err.Tok.line - 2;
-            res[idx[curIdx]] = TacnyInterpreter.VerifyResult.Failed;
+        foreach(var prog in boogieProg) {
+          PipelineStatistics stats;
+          List<ErrorInformation> errorList;
+          PipelineOutcome tmp = BoogiePipeline(prog.Item2,
+            new List<string> { program.Name }, program.Name, er,
+            out stats, out errorList, program);
+
+          var curIdx = -1;
+          for(var i = 0; i < errorList.Count; i++) {
+            var err = errorList[i];
+            if(err.Tok.line < TacnyDriver.TacticCodeTokLine) {
+              curIdx = 0 - err.Tok.line - 2;
+              res[idx[curIdx]] = TacnyInterpreter.VerifyResult.Failed;
+            }
           }
         }
-      }
+      } catch {
+        Console.WriteLine("execption: set verify result as failed.");
+        for(var i = 0; i < res.Count; i++) {
+            res[i] = TacnyInterpreter.VerifyResult.Failed;
+          }
+        }
+
     }
 
     /// <summary>
