@@ -5591,7 +5591,7 @@ namespace Microsoft.Dafny {
 
   public class ExprRhs : AssignmentRhs
   {
-    public readonly Expression Expr;
+    public Expression Expr;
     [ContractInvariantMethod]
     void ObjectInvariant() {
       Contract.Invariant(Expr != null);

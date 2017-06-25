@@ -375,6 +375,54 @@ namespace Microsoft.Dafny.Tacny {
       memb.Attributes = newattr;
     }
 
+    private static void SetStatementTokLine(int line, Statement s) {
+      if(s is BlockStmt) {
+        var s0 = s as BlockStmt;
+        s0.Tok.line = line;
+        foreach(var ss in s0.Body)
+          SetStatementTokLine(line, ss);
+      } else if(s is MatchStmt) {
+        var s0 = s as MatchStmt;
+        foreach(var ss in s0.Cases) {
+          ss.tok.line = line;
+          foreach(var body in ss.Body)
+            SetStatementTokLine(line, body);
+        }
+      } else
+        s.Tok.line = line;
+    }
+
+    private static void SetStatementName(Statement s, string oriName, string newName) {
+      if(s is BlockStmt) {
+        var s0 = s as BlockStmt;
+        foreach(var ss in s0.Body)
+          SetStatementName(ss, oriName, newName);
+      } else if(s is MatchStmt) {
+        var s0 = s as MatchStmt;
+        foreach(var ss in s0.Cases) {
+          foreach(var body in ss.Body)
+            SetStatementName(body, oriName, newName);
+        }
+      } else if(s is UpdateStmt) {
+        var ss = s as UpdateStmt;
+        if(ss.Rhss != null) {
+          foreach(var rhs in ss.Rhss) {
+            Console.WriteLine("s");
+            if(rhs is ExprRhs && (rhs as ExprRhs).Expr is ApplySuffix
+              && ((rhs as ExprRhs).Expr as ApplySuffix).Lhs is NameSegment
+              && (((rhs as ExprRhs).Expr as ApplySuffix).Lhs as NameSegment).Name == oriName) {
+              var oldAps = (rhs as ExprRhs).Expr as ApplySuffix;
+              ApplySuffix aps = new ApplySuffix(oldAps.tok,
+                new NameSegment(oldAps.tok, newName, null), oldAps.Args);
+              (rhs as ExprRhs).Expr = aps;
+
+            }
+          }
+        }
+
+      }
+    }
+
     /// <summary>
     /// an optimised version for verifying prog
     /// </summary>
@@ -387,15 +435,13 @@ namespace Microsoft.Dafny.Tacny {
       List<BlockStmt> bodies = new List<BlockStmt>();
       for(var i = 0; i < states.Count; i++) {
         var state0 = states[i];
-        var code = state0.GetGeneratedCode().Copy();
-        foreach(var c in code)
-          c.Tok.line = TacnyDriver.TacticCodeTokLine - i - 1;
         var result = new Dictionary<Statement, List<Statement>>
         {
           { state0.TopLevelTacApp, state0.GetGeneratedCode().Copy()}
         };
         var body0 = InsertCode(state0, result);
         SetStatementTokLine(TacnyDriver.TacticCodeTokLine - i - 1, body0);
+        SetStatementName(body0, state0.TargetMethod.Name, state0.TargetMethod.Name + "_tacny_code_" + i);
         bodies.Add(body0);
       }
 
@@ -563,21 +609,6 @@ namespace Microsoft.Dafny.Tacny {
         return prog;
     }
 
-    private static void SetStatementTokLine (int line, Statement s) {
-      if (s is BlockStmt) {
-        var s0 = s as BlockStmt;
-        s0.Tok.line = line;
-        foreach(var ss in s0.Body)
-          SetStatementTokLine(line, ss);
-      } else if (s is MatchStmt) {
-        var s0 = s as MatchStmt;
-        foreach(var ss in s0.Cases) {
-          ss.tok.line = line;
-          foreach(var body in ss.Body)
-            SetStatementTokLine(line, body);
-        }
-      } else s.Tok.line = line;
-    }
     private static int _verificationCount = 0;
     public static void VerifyResolvedProg(ProofState state, Program program,
       List<TacnyInterpreter.VerifyResult> res, List<int> idx,
@@ -597,7 +628,7 @@ namespace Microsoft.Dafny.Tacny {
 
       IEnumerable<Tuple<string, Bpl.Program>> boogieProg;
 
-      try {
+   //   try {
         boogieProg = Translator.Translate(program, program.reporter, null);
 
         foreach(var prog in boogieProg) {
@@ -616,12 +647,12 @@ namespace Microsoft.Dafny.Tacny {
             }
           }
         }
-      } catch {
+    /*  } catch {
         Console.WriteLine("execption: set verify result as failed.");
         for(var i = 0; i < res.Count; i++) {
             res[i] = TacnyInterpreter.VerifyResult.Failed;
           }
-        }
+        }*/
 
     }
 

@@ -359,7 +359,6 @@ namespace Microsoft.Dafny.Tacny
                 if(proofState[i].IsTerminated()) {
                   ret = true;
                   yield return proofState[i];
-                  yield break;
                 }
                 returned.Add(ret);
                 break;
@@ -373,7 +372,6 @@ namespace Microsoft.Dafny.Tacny
                   if(proofState[i].IsTerminated()) {
                     ret = true;
                     yield return proofState[i];
-                    yield break;
                   }
                 }
                 returned.Add(ret);
@@ -382,7 +380,7 @@ namespace Microsoft.Dafny.Tacny
                 //Console.WriteLine("in unresolved");
                 discarded.Add(new Tuple<ProofState, VerifyResult>(proofState[i], VerifyResult.Unresolved));
                 //discard current branch if fails to resolve
-                returned.Add(ret);
+                returned.Add(false);
                 continue;
               default:
                 throw new ArgumentOutOfRangeException();
