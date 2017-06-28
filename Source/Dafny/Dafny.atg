@@ -2370,19 +2370,18 @@ WhileStmt<out Statement stmt>
      stmt = dummyStmt;  // to please the compiler
      bool isDirtyLoop = true;
      bool usesOptionalBraces;
-	 List<Statement> tinvs = new List<Statement>();
   .)
   "while"                    (. x = t; .)
   (
     IF(IsLoopSpec() || IsAlternative())
-    { LoopSpec<invariants, tinvs, decreases, ref mod, ref decAttrs, ref modAttrs> }
+    { LoopSpec<invariants, decreases, ref mod, ref decAttrs, ref modAttrs> }
     AlternativeBlock<false, out alternatives, out usesOptionalBraces, out endTok>
     (. stmt = new AlternativeLoopStmt(x, endTok, invariants, new Specification<Expression>(decreases, decAttrs), new Specification<FrameExpression>(mod, modAttrs), alternatives, usesOptionalBraces); .)
   |
     ( Guard<out guard>           (. Contract.Assume(guard == null || cce.Owner.None(guard)); .)
     | "..."                      (. guardEllipsis = t; .)
     )
-    { LoopSpec<invariants, tinvs, decreases, ref mod, ref decAttrs, ref modAttrs> }
+    { LoopSpec<invariants, decreases, ref mod, ref decAttrs, ref modAttrs> }
     ( IF(la.kind == _lbrace)      /* if there's an open brace, claim it as the beginning of the loop body (as opposed to a BlockStmt following the loop) */
       BlockStmt<out body, out bodyStart, out bodyEnd>  (. endTok = body.EndTok; isDirtyLoop = false; .)
     | IF(la.kind == _ellipsis)    /* if there's an ellipsis, claim it as standing for the loop body (as opposed to a "...;" statement following the loop) */
@@ -2397,19 +2396,19 @@ WhileStmt<out Statement stmt>
         if (body == null && !isDirtyLoop) {
           body = new BlockStmt(x, endTok, new List<Statement>());
         }
-        stmt = new WhileStmt(x, endTok, guard, invariants, tinvs, new Specification<Expression>(decreases, decAttrs), new Specification<FrameExpression>(null, null), body);
+        stmt = new WhileStmt(x, endTok, guard, invariants, new Specification<Expression>(decreases, decAttrs), new Specification<FrameExpression>(null, null), body);
         stmt = new SkeletonStatement(stmt, guardEllipsis, bodyEllipsis);
       } else {
         // The following statement protects against crashes in case of parsing errors
         if (body == null && !isDirtyLoop) {
           body = new BlockStmt(x, endTok, new List<Statement>());
         }
-        stmt = new WhileStmt(x, endTok, guard, invariants, tinvs, new Specification<Expression>(decreases, decAttrs), new Specification<FrameExpression>(mod, modAttrs), body);
+        stmt = new WhileStmt(x, endTok, guard, invariants, new Specification<Expression>(decreases, decAttrs), new Specification<FrameExpression>(mod, modAttrs), body);
       }
     .)
   )
   .
-LoopSpec<.List<MaybeFreeExpression> invariants, List<Statement> tinvs,  List<Expression> decreases, ref List<FrameExpression> mod, ref Attributes decAttrs, ref Attributes modAttrs.>
+LoopSpec<.List<MaybeFreeExpression> invariants, List<Expression> decreases, ref List<FrameExpression> mod, ref Attributes decAttrs, ref Attributes modAttrs.>
 = (. Expression e; FrameExpression fe; Statement s;
      bool isFree = false; Attributes attrs = null;
   .)
@@ -2420,7 +2419,6 @@ LoopSpec<.List<MaybeFreeExpression> invariants, List<Statement> tinvs,  List<Exp
     { IF(IsAttribute()) Attribute<ref attrs> }
     Expression<out e, false, true>                (. invariants.Add(new MaybeFreeExpression(e, isFree, attrs)); .)
     OldSemi
-  | SYNC "tactic" UpdateStmt<out s>			  (. tinvs.Add(s); .)
   | SYNC "decreases"
     { IF(IsAttribute()) Attribute<ref decAttrs> }
     DecreasesList<decreases, true, true>

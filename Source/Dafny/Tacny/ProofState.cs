@@ -25,6 +25,7 @@ namespace Microsoft.Dafny.Tacny{
 
     public bool InAsserstion { set; get; } = false;
     public Statement TopLevelTacApp;
+    private ApplySuffix _tacAppExpr;
     private Stack<Frame> _scope;
 
     public ProofState(Program program){
@@ -55,8 +56,8 @@ namespace Microsoft.Dafny.Tacny{
       FillStaticState(program);
     }
 
-    //get the unresoved version of this tactic application stmt
-    internal UpdateStmt GetTacticAppStmt(UpdateStmt tacAps) {
+    //get the unresolved version of this tactic application stmt
+    internal Statement GetTacticAppStmt(Statement stmt) {
       var prog = this._original;
       Method destMd = null;
       foreach(var m in prog.DefaultModuleDef.TopLevelDecls) {
@@ -75,21 +76,20 @@ namespace Microsoft.Dafny.Tacny{
           }
         }
       }
-
-      return GetTacticAppStmt(tacAps.Tok.pos, destMd.Body);
+      return GetTacticAppStmt(stmt.Tok.pos, destMd.Body);
     }
 
-    internal UpdateStmt GetTacticAppStmt(int pos, BlockStmt stmts) {
+    internal Statement GetTacticAppStmt(int pos, BlockStmt stmts) {
       if(stmts.Body == null)
         return null;
       return GetTacticAppStmt(pos, stmts.Body);
     }
-    internal UpdateStmt GetTacticAppStmt(int pos, List<Statement> stmts) {
-      UpdateStmt ret = null;
+    internal Statement GetTacticAppStmt(int pos, List<Statement> stmts) {
+      Statement ret = null;
       foreach(var stmt in stmts) {
-        if(stmt is UpdateStmt && stmt.Tok.pos == pos)
-          return stmt as UpdateStmt;
-        else if(stmt is BlockStmt) {
+        if(stmt.Tok.pos == pos) {
+          return stmt;
+        } else if(stmt is BlockStmt) {
           ret = GetTacticAppStmt(pos, stmt as BlockStmt);
         } else if(stmt is MatchStmt) {
           var match = stmt as MatchStmt;
@@ -100,10 +100,9 @@ namespace Microsoft.Dafny.Tacny{
           }
         } else if(stmt is ForallStmt) {
           //TODO
+        } else if(stmt is AssertStmt && (stmt as AssertStmt).Proof != null) {
+          ret = GetTacticAppStmt(pos, (stmt as AssertStmt).Proof);
         }
-        else if (stmt is AssertStmt && (stmt as AssertStmt).Proof != null) {
-            ret = GetTacticAppStmt(pos, (stmt as AssertStmt).Proof);
-          }
         if(ret != null)
           break;
       }
@@ -111,33 +110,37 @@ namespace Microsoft.Dafny.Tacny{
       return ret;
     }
     /// <summary>
-    /// Initialize a new tactic state
+    /// Initialize a new tactic state:
+    /// case 1, inline tactic app: stmt != null, aps == null
+    /// case 2, tactic stmt app: stmt != null, aps != null, stmt is UpdateStmt, Util.GetTacticAppExpr(stmt).tok.pos == aps.tok.pos
+    /// case 3, tactic expr in stmt:
+    ///    stmt != null, aps != null, stmt is UpdateStmt, Util.GetTacticAppExpr(stmt).tok.pos != aps.tok.pos
+    /// case 4, tactic expr in other expr, e.g. inv: stmt == WhileStmt, aps != null
     /// </summary>
-    /// <param name="tacAps">Tactic application</param>
+    /// <param name="tacAps">the stmt which tactic will be expanded, it will be null in the case inv</param>
     /// <param name="variables">Dafny variables</param>
-    public bool InitState(Statement tacAps, Dictionary<IVariable, Dfy.Type> variables,  bool ifPartial){
-      // clear the scope  
+    public bool InitState(Statement stmt0, ApplySuffix aps0, Dictionary<IVariable, Dfy.Type> variables,  bool ifPartial){
+      // clear the scope  D
       _scope = new Stack<Frame>();
+      ApplySuffix aps = null;
+      Statement stmt;
 
       List<Statement> body = new List<Statement>();
       Attributes attrs, tacticAttrs; // attrs from tactic call, and the attrs from tactic definitions.
-      ApplySuffix aps = null;
       Tactic tactic = null;
       string errMsg;
 
-      if (tacAps is UpdateStmt) {
-        tactic = GetTactic(tacAps as UpdateStmt) as Tactic;
-        aps  = ((ExprRhs)((UpdateStmt)tacAps).Rhss[0]).Expr as ApplySuffix;
-        if (!Util.CheckTacticArgs(tactic, aps, this, out errMsg)) {
-          ReportTacticError(tacAps.Tok, errMsg);
+      if(aps0 != null) {
+        tactic = GetTactic(aps0) as Tactic;
+        if (!Util.CheckTacticArgs(tactic, aps0, this, out errMsg)) {
+          ReportTacticError(aps0.tok, errMsg);
         }
-        //get the unresoved stmt
-        tacAps = GetTacticAppStmt((UpdateStmt)tacAps);
-        aps = ((ExprRhs)((UpdateStmt)tacAps).Rhss[0]).Expr as ApplySuffix;
-
+        //get the unresolved stmt
+        stmt = GetTacticAppStmt(stmt0);
+        aps = Expr.TacticAppExprFinder.GetTacticAppExpr(this, stmt);
 
         tacticAttrs = tactic.Attributes;
-        attrs = (tacAps as UpdateStmt).Rhss[0].Attributes;
+        attrs = (stmt as UpdateStmt)!= null ? (stmt as UpdateStmt).Rhss[0].Attributes : null;
         if (tactic.Req != null) {
           foreach (var expr in tactic.Req) {
             body.Add(
@@ -159,14 +162,14 @@ namespace Microsoft.Dafny.Tacny{
                 null, false));
           }
         }
-      } else if (tacAps is InlineTacticBlockStmt) {
-        body = (tacAps as InlineTacticBlockStmt).Body.Body;
-        attrs = (tacAps as InlineTacticBlockStmt).Attributes;
+      } else if (stmt0 is InlineTacticBlockStmt) {
+        stmt = stmt0.Copy();
+        body = (stmt as InlineTacticBlockStmt).Body.Body;
+        attrs = (stmt as InlineTacticBlockStmt).Attributes;
         tacticAttrs = null;
       } else {
         throw new Exception("Unexpceted tactic applciation statement.");
       }
-
 
       var frame = new Frame(body, ifPartial, attrs, tacticAttrs);
 
@@ -181,17 +184,21 @@ namespace Microsoft.Dafny.Tacny{
           var arg = aps.Args[index];
           if (tactic != null) frame.AddTVar(tactic.Ins[index].Name, arg);
         }
+        foreach(var outs in tactic.Outs){
+          frame.AddTVar(outs.Name, null);
+        }
+        
       }
       _scope.Push(frame);
       ResetVerifyN();
-      TopLevelTacApp = tacAps.Copy();
+      TopLevelTacApp = stmt.Copy();
+      _tacAppExpr = aps.Copy();
 
       if (tactic != null && (aps != null && aps.Args.Count != tactic.Ins.Count))
-        ReportTacticError(tacAps.Tok,
+        ReportTacticError(stmt.Tok,
           $"Wrong number of method arguments (got {aps.Args.Count}, expected {tactic.Ins.Count})");
 
       return _scope.Peek().FrameCtrl.enabled;
-
     }
 
     public void ReportTacticError(IToken t, string msg)
@@ -394,6 +401,20 @@ namespace Microsoft.Dafny.Tacny{
 
     public List<Statement> GetGeneratedCode(){
       // Contract.Ensures(Contract.Result<List<Statement>>() != null);
+      if(_tacAppExpr != null) {
+        var tactic = GetTactic(_tacAppExpr) as Tactic;
+        if(tactic.Outs != null && tactic.Outs.Count != 0) {
+          var ret = GetTVarValue(tactic.Outs[0].Name);
+          if(ret != null) {
+            var code = Expr.TacticAppUnfolder.UnfoldTacticExprInStmt(this, this.TopLevelTacApp, this._tacAppExpr,
+              ret);
+            if(code != null) {
+              return new List<Statement>() { code };
+            }
+          }
+          return new List<Statement>();
+        }
+      }
       return _scope.Peek().GetGeneratedCode();
     }
 
@@ -856,7 +877,6 @@ namespace Microsoft.Dafny.Tacny{
       }
 
       internal void AddTVar(string variable, Expression value){
-        Contract.Requires<ArgumentNullException>(variable != null, "key");
         if (_declaredVariables.All(v => v.Key != variable)){
           _declaredVariables.Add(variable, value);
         }

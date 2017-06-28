@@ -6381,7 +6381,7 @@ namespace Microsoft.Dafny {
       Contract.Invariant(Decreases != null);
       Contract.Invariant(Mod != null);
     }
-    public LoopStmt(IToken tok, IToken endTok, List<MaybeFreeExpression> invariants, List<Statement> tinvaraints, Specification<Expression> decreases, Specification<FrameExpression> mod)
+    public LoopStmt(IToken tok, IToken endTok, List<MaybeFreeExpression> invariants, Specification<Expression> decreases, Specification<FrameExpression> mod)
     : base(tok, endTok)
     {
       Contract.Requires(tok != null);
@@ -6391,7 +6391,6 @@ namespace Microsoft.Dafny {
       Contract.Requires(mod != null);
 
       this.Invariants = invariants;
-      this.TInvariants = tinvaraints;
       this.Decreases = decreases;
       this.Mod = mod;
       if (DafnyOptions.O.Dafnycc) {
@@ -6428,9 +6427,9 @@ namespace Microsoft.Dafny {
     public BlockStmt Body;
 
     public WhileStmt(IToken tok, IToken endTok, Expression guard,
-                     List<MaybeFreeExpression> invariants, List<Statement> tinvariants ,Specification<Expression> decreases, Specification<FrameExpression> mod,
+                     List<MaybeFreeExpression> invariants ,Specification<Expression> decreases, Specification<FrameExpression> mod,
                      BlockStmt body)
-      : base(tok, endTok, invariants, tinvariants, decreases, mod) {
+      : base(tok, endTok, invariants, decreases, mod) {
       Contract.Requires(tok != null);
       Contract.Requires(endTok != null);
       this.Guard = guard;
@@ -6463,7 +6462,7 @@ namespace Microsoft.Dafny {
     public RefinedWhileStmt(IToken tok, IToken endTok, Expression guard,
                             List<MaybeFreeExpression> invariants, Specification<Expression> decreases, Specification<FrameExpression> mod,
                             BlockStmt body)
-      : base(tok, endTok, guard, invariants, null, decreases, mod, body) {
+      : base(tok, endTok, guard, invariants, decreases, mod, body) {
       Contract.Requires(tok != null);
       Contract.Requires(endTok != null);
       Contract.Requires(body != null);
@@ -6481,7 +6480,7 @@ namespace Microsoft.Dafny {
     public AlternativeLoopStmt(IToken tok, IToken endTok,
                                List<MaybeFreeExpression> invariants, Specification<Expression> decreases, Specification<FrameExpression> mod,
                                List<GuardedAlternative> alternatives, bool usesOptionalBraces)
-      : base(tok, endTok, invariants, null, decreases, mod) {
+      : base(tok, endTok, invariants, decreases, mod) {
       Contract.Requires(tok != null);
       Contract.Requires(endTok != null);
       Contract.Requires(alternatives != null);

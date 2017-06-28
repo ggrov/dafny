@@ -51,6 +51,25 @@ namespace Microsoft.Dafny.Tacny {
       return true;
     }
 
+    public static bool CheckTacticArgsCount(ClassDecl curDecl, ApplySuffix e, out string errMsg) {
+      Contract.Requires(curDecl != null);
+      if(curDecl != null)
+        foreach(var member in curDecl.Members) {
+          var tac = member as ITactic;
+          if(tac != null && tac.Name == GetSignature(e)) {
+            if(e.Args.Count != tac.Ins.Count) {
+              errMsg = "The number of args doesn't match the tactic definition for "
+                 + Printer.ExprToString(e);
+              return false;
+            }
+            errMsg = "";
+            return true;
+          }
+        }
+      errMsg = "Can't find the tactic for " + Printer.ExprToString(e);
+      return false;
+    }
+
     public static bool CheckTacticArgsCount(ClassDecl curDecl, UpdateStmt stmt, out string errMsg) {
       Contract.Requires(curDecl != null);
       if (curDecl != null)
@@ -162,6 +181,11 @@ namespace Microsoft.Dafny.Tacny {
       return edn.Lhs as NameSegment;
     }
 
+    public static ApplySuffix GetTacticAppExpr (UpdateStmt us) {
+      var er = us.Rhss[0] as ExprRhs;
+      Contract.Assert(er != null);
+      return er.Expr as ApplySuffix;
+    }
     /// <summary>
     ///   Return the string signature of an UpdateStmt
     /// </summary>
@@ -242,15 +266,12 @@ namespace Microsoft.Dafny.Tacny {
 
       for(var i = 0; i < body.Count; i++) {
         var stmt = body[i];
-        if ((stmt as AssertStmt)?.Proof != null) {
-          InsertCodeInternal((stmt as AssertStmt).Proof.Body, code, tacticCall);
-        } else if(stmt is UpdateStmt || stmt is InlineTacticBlockStmt) {
-          // compare tokens
-          if(Compare(tacticCall.Tok, stmt.Tok)) {
+        if(stmt.Tok.pos == tacticCall.Tok.pos){
             body.RemoveAt(i);
             body.InsertRange(i, code);
             return;
-          }
+        } else if ((stmt as AssertStmt)?.Proof != null) {
+          InsertCodeInternal((stmt as AssertStmt).Proof.Body, code, tacticCall);
         } else if(stmt is WhileStmt) {
           /*
           var whileStmt = stmt as WhileStmt;

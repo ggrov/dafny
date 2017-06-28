@@ -83,7 +83,7 @@ namespace Microsoft.Dafny.Tacny
       watch.Start();
 
       _driver = new TacnyDriver(program, erd);
-      // backup datatype info, as this will be reset by the internal resoling process in tacny.
+      // backup datatype info, as this will be reset by the internal resolving process in tacny.
       // this contains datatype obj instance for comparing types
       Type.BackupScopes(); 
       var result = _driver.InterpretAndUnfoldTactic(target, r);
@@ -187,10 +187,14 @@ namespace Microsoft.Dafny.Tacny
           InterpretWhileStmt(whileStmt, frame);
         } else if (stmt is UpdateStmt) {
           if (_state.IsTacticCall(stmt as UpdateStmt)) {
-            UndfoldTacticCall(stmt, StackToDict(frame));
+            UndfoldTacticCall(stmt, Util.GetTacticAppExpr(stmt as UpdateStmt), StackToDict(frame));
+          }
+          var expr = TacticAppExprFinder.GetTacticAppExpr(_state, stmt);
+          if(expr != null) {
+            UndfoldTacticCall(stmt, expr, StackToDict(frame));
           }
         } else if (stmt is InlineTacticBlockStmt) {
-          UndfoldTacticCall(stmt, StackToDict(frame));
+          UndfoldTacticCall(stmt, null, StackToDict(frame));
         } else if (stmt is MatchStmt) {
           foreach (var caseStmt in (stmt as MatchStmt).Cases) {
             InterpretCaseStmt(caseStmt, frame);            
@@ -204,6 +208,11 @@ namespace Microsoft.Dafny.Tacny
         } else if (stmt is CalcStmt) {
         } else if (stmt is BlockStmt) {
           InterpertBlockStmt((stmt as BlockStmt), frame);
+        } else {
+          var expr = TacticAppExprFinder.GetTacticAppExpr(_state, stmt);
+          if(expr != null) {
+            UndfoldTacticCall(stmt, expr, StackToDict(frame));
+          }
         }
       }
       frame.Pop();
@@ -217,6 +226,8 @@ namespace Microsoft.Dafny.Tacny
 
     private void InterpretWhileStmt(WhileStmt stmt, Stack<Dictionary<IVariable, Type>> frame)
     {
+      //TODO: need to check inv
+      /*
       if (stmt.TInvariants != null && stmt.TInvariants.Count > 0) {
         foreach (var tinv in stmt.TInvariants) {
           if (tinv is UpdateStmt) {
@@ -231,7 +242,7 @@ namespace Microsoft.Dafny.Tacny
 
           }
         }
-      }
+      }*/
       InterpertBlockStmt(stmt.Body, frame);
     }
 
@@ -275,11 +286,11 @@ namespace Microsoft.Dafny.Tacny
       //InterpertBlockStmt(stmt.);
     }
 
-    private void UndfoldTacticCall(Statement stmt, Dictionary<IVariable, Type> varList) {
+    private void UndfoldTacticCall(Statement stmt, ApplySuffix aps, Dictionary<IVariable, Type> varList) {
       // this is a top level tactic call
       if (IfEvalTac) {
         _branches.Add(
-          TacnyInterpreter.EvalTopLevelTactic(_state.Copy(), varList, stmt, _errorReporterDelegate, 
+          TacnyInterpreter.EvalTopLevelTactic(_state.Copy(), varList, stmt, aps,  _errorReporterDelegate, 
           _state.TargetMethod.CallsTactic != _tacticCalls + 1));
         _tacticCalls++;
       }

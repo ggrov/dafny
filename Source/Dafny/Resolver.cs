@@ -8046,7 +8046,8 @@ namespace Microsoft.Dafny
       } else if (stmt is InlineTacticBlockStmt) {
         if (codeContext is Method) {
           ((Method)codeContext).CallsTactic++;
-        }
+        } else
+          reporter.Error(MessageSource.Resolver, stmt.Tok, "Only support tactic call statement in Method.");
         return;
       } else {
         Contract.Assert(false); throw new cce.UnreachableException();
@@ -8612,22 +8613,25 @@ namespace Microsoft.Dafny
       ResolveAttributes(s.Attributes, s, new ResolveOpts(codeContext, true));
     }
 
-     bool IsTacticCall(UpdateStmt us) {
-      var er = us.Rhss[0] as ExprRhs;
-      Contract.Assert(er != null);
-
-      if (!(er.Expr is ApplySuffix)) return false;
-
-      var name = (er.Expr as ApplySuffix).Lhs.tok.val;
+    bool IsTacticCall(ApplySuffix expr){
+      var name = expr.Lhs.tok.val;
       Dictionary<string, MemberDecl> members;
       MemberDecl member = null;
-      if (currentClass != null && classMembers.TryGetValue(currentClass, out members) &&
+      if(currentClass != null && classMembers.TryGetValue(currentClass, out members) &&
           members.TryGetValue(name, out member)) {
         return member is ITactic;
       }
-
-
+      
       return false;
+    }
+
+    bool IsTacticCall(UpdateStmt us) {
+      var er = us.Rhss[0] as ExprRhs;
+      if (er == null) return false;
+
+      if (!(er.Expr is ApplySuffix)) return false;
+
+      return IsTacticCall(er.Expr as ApplySuffix);
     }
 
     /// <summary>
@@ -8659,7 +8663,7 @@ namespace Microsoft.Dafny
           } else
             reporter.Error(MessageSource.Resolver, update, errMsg, update.Lhss.Count, update.Rhss.Count);
         } else
-          reporter.Error(MessageSource.Resolver, update, "Only support tactic call in Method.", update.Lhss.Count, update.Rhss.Count);
+          reporter.Error(MessageSource.Resolver, update, "Only support tactic call statement in Method.", update.Lhss.Count, update.Rhss.Count);
 
         return;
       }
@@ -11787,11 +11791,32 @@ namespace Microsoft.Dafny
       return info;
     }
 
-    MethodCallInformation ResolveApplySuffix(ApplySuffix e, ResolveOpts opts, bool allowMethodCall) {
+    MethodCallInformation ResolveApplySuffix(ApplySuffix e, ResolveOpts opts, bool allowMethodCall){
       Contract.Requires(e != null);
       Contract.Requires(opts != null);
       Contract.Ensures(Contract.Result<MethodCallInformation>() == null || allowMethodCall);
-      Expression r = null;  // upon success, the expression to which the ApplySuffix resolves
+
+      //check if tactic call first
+      if (IsTacticCall(e)){
+        string errMsg;
+
+        foreach (var arg in e.Args){
+          ResolveExpression(arg, opts);
+        }
+        if(Tacny.Util.CheckTacticArgsCount(currentClass, e, out errMsg)) {
+          if (opts.codeContext is Method)
+            (opts.codeContext as Method).CallsTactic++;
+          else
+            reporter.Error(MessageSource.Resolver, e.tok, "Only support tactic call statement in Method.");
+
+        } else
+          reporter.Error(MessageSource.Resolver, e.tok, errMsg);
+        
+        return null;
+      }
+    
+
+    Expression r = null;  // upon success, the expression to which the ApplySuffix resolves
       var errorCount = reporter.Count(ErrorLevel.Error);
       if (e.Lhs is NameSegment) {
         r = ResolveNameSegment((NameSegment)e.Lhs, true, e.Args, opts, allowMethodCall);

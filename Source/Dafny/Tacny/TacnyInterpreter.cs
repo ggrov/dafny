@@ -22,15 +22,16 @@ namespace Microsoft.Dafny.Tacny
     }
 
     public static IEnumerable<ProofState> EvalTopLevelTactic(ProofState state, Dictionary<IVariable, Type> variables,
-      Statement tacticApplication, ErrorReporterDelegate errorDelegate, bool ifPartial) {
+      Statement tacticApplication, ApplySuffix aps,  ErrorReporterDelegate errorDelegate, bool ifPartial) {
       Contract.Requires<ArgumentNullException>(Tcce.NonNull(variables));
       Contract.Requires<ArgumentNullException>(Tcce.NonNull(tacticApplication));
       Contract.Requires<ArgumentNullException>(state != null, "state");
-      Contract.Requires(tacticApplication is UpdateStmt || tacticApplication is InlineTacticBlockStmt);
+      Contract.Requires(tacticApplication == null || 
+        tacticApplication is UpdateStmt || tacticApplication is InlineTacticBlockStmt);
 
       IEnumerable<ProofState> branches;
 
-      if (state.InitState(tacticApplication, variables, ifPartial) == false)
+      if (state.InitState(tacticApplication, aps, variables, ifPartial) == false)
         return null;
 
 #if !TACNY_DEBUG

@@ -409,6 +409,71 @@ namespace Microsoft.Dafny.Tacny.Expr {
 
   }
 
+  class TacticAppUnfolder : Cloner {
+    private ProofState _state;
+    private ApplySuffix _aps;
+    private Expression _destExpr;
+
+    private TacticAppUnfolder(ProofState ps, ApplySuffix aps, Expression code) {
+      _state = ps;
+      _aps = aps;
+      _destExpr = code;
+    }
+
+    public override Expression CloneApplySuffix(ApplySuffix e) {
+      if(e.tok.pos == _aps.tok.pos) {
+        return _destExpr;
+      }
+      return base.CloneApplySuffix(e);
+    }
+
+
+    public override Expression CloneExpr(Expression expr) {
+      var suffix = expr as ApplySuffix;
+      if(suffix != null)
+        return CloneApplySuffix(suffix);
+
+      return base.CloneExpr(expr);
+    }
+
+    public static Statement UnfoldTacticExprInStmt(ProofState ps, Statement stmt, 
+      ApplySuffix aps, Expression code) {
+      var unfolder = new TacticAppUnfolder(ps, aps, code);
+      return unfolder.CloneStmt(stmt);
+    }
+  }
+  class TacticAppExprFinder : Cloner {
+    private ProofState _state;
+    private ApplySuffix _aps;
+
+    private TacticAppExprFinder(ProofState ps) {
+      _state = ps;
+    }
+
+    public override Expression CloneApplySuffix(ApplySuffix e) {
+      if(_state.IsTacticCall(e)) {
+        _aps = base.CloneApplySuffix(e) as ApplySuffix;
+        return _aps;
+      }
+       return base.CloneApplySuffix(e);
+    }
+
+
+    public override Expression CloneExpr(Expression expr) {
+      var suffix = expr as ApplySuffix;
+      if(suffix != null)
+        return CloneApplySuffix(suffix);
+
+        return base.CloneExpr(expr);
+    }
+ 
+    public static ApplySuffix GetTacticAppExpr(ProofState ps, Statement stmt) {
+      var finder = new TacticAppExprFinder(ps);
+      finder.CloneStmt(stmt);
+      return finder._aps;
+    }
+  }
+
   class RenameVar : Cloner {
 
     private readonly Dictionary<string, string> _renames;
