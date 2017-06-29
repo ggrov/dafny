@@ -448,10 +448,10 @@ namespace Microsoft.Dafny.Tacny {
       List<BlockStmt> bodies = new List<BlockStmt>();
       for(var i = 0; i < states.Count; i++) {
         var state0 = states[i];
-        var result = new Dictionary<Statement, List<Statement>>
-        {
-          { state0.TopLevelTacApp, state0.GetGeneratedCode().Copy()}
-        };
+        var result = TacnyDriver.GetResultList().Where(
+          kvp => kvp.Key.Tok.pos != state0.TopLevelTacApp.Tok.pos).ToDictionary(c => c.Key, c => c.Value);
+        result.Add(state0.TopLevelTacApp, state0.GetGeneratedCode().Copy());
+        
         var body0 = InsertCode(state0, result);
         SetStatementTokLine(TacnyDriver.TacticCodeTokLine - i - 1, body0);
         SetStatementName(body0, state0.TargetMethod.Name, state0.TargetMethod.Name + "_tacny_code_" + i);
@@ -506,12 +506,11 @@ namespace Microsoft.Dafny.Tacny {
 
       var prog = state.GetDafnyProgram();
 
+      var result = TacnyDriver.GetResultList().Where(
+        kvp => kvp.Key.Tok.pos != state.TopLevelTacApp.Tok.pos).ToDictionary(c => c.Key, c => c.Value);
+      result.Add(state.TopLevelTacApp, state.GetGeneratedCode().Copy());
 
-        var result = new Dictionary<Statement, List<Statement>>
-        {
-          { state.TopLevelTacApp, state.GetGeneratedCode().Copy()}
-        };
-        var body = InsertCode(state, result);
+      var body = InsertCode(state, result);
 
       Method destMd = null;
       DefaultClassDecl defaultClassDecl = null;

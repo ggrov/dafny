@@ -24,7 +24,7 @@ namespace Microsoft.Dafny.Tacny
     private readonly ProofState _state;
     private static int _tacticCalls;
 
-    private static Dictionary<Statement, List<Statement>> GetResultList(){
+    public static Dictionary<Statement, List<Statement>> GetResultList(){
       if (_resultList == null)
         _resultList = new Dictionary<Statement, List<Statement>>();
       return _resultList;
@@ -40,7 +40,7 @@ namespace Microsoft.Dafny.Tacny
       SetResultList(newrl);
     }
 
-    private static void UpdateResultList(Statement stmt, List<Statement> result) {
+    public static void UpdateResultList(Statement stmt, List<Statement> result) {
       //note that this will override generated code for the same tactic call
       var newrl = GetResultList().Where(kvp => kvp.Key.Tok.pos != stmt.Tok.pos).ToDictionary(i => i.Key, i => i.Value);
       SetResultList(newrl);
