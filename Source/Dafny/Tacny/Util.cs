@@ -241,22 +241,14 @@ namespace Microsoft.Dafny.Tacny {
     private static void RemoveUnfoldedTacticCalls(List<Statement> body, ProofState state)
     {
       Contract.Requires<ArgumentNullException>(body != null, "body ");
-      for (var i = 0; i < body.Count; i++) {
+      for(var i = 0; i < body.Count; i++) {
         var stmt = body[i];
-        if ((stmt as AssertStmt)?.Proof != null) {
-          RemoveUnfoldedTacticCalls((stmt as AssertStmt).Proof.Body, state);
-        } else if ((stmt is UpdateStmt && state.IsTacticCall(stmt as UpdateStmt)) || 
-          stmt is InlineTacticBlockStmt) {
-          body.RemoveAt(i);
-        } else if (stmt is WhileStmt) {
-        } else if (stmt is IfStmt) {
-        } else if (stmt is MatchStmt) {
-          foreach (var caseStmt in (stmt as MatchStmt).Cases) {
-            RemoveUnfoldedTacticCalls(caseStmt.Body, state);
-          }
-        } else if (stmt is CalcStmt) {
-        } else if (stmt is BlockStmt) {
+        if(stmt is BlockStmt)
           RemoveUnfoldedTacticCalls((stmt as BlockStmt).Body, state);
+        else {
+          var aps = Expr.TacticAppExprFinder.GetTacticAppExpr(state, stmt);
+          if(aps != null)
+            body.RemoveAt(i);
         }
       }
     }

@@ -149,7 +149,7 @@ namespace Microsoft.Dafny.Tacny
         Contract.Assert(newRets.Count != 0);
         var body = Util.InsertCode(_state, newRets);
         method.Body.Body.Clear();
-        if (body != null)
+        if (newRets.Count != 0 && body != null)
           method.Body.Body.AddRange(body.Body);
 
         // use the original resolver of the resoved program, as it contains all the necessary type info
@@ -169,7 +169,9 @@ namespace Microsoft.Dafny.Tacny
       frame.Push(new Dictionary<IVariable, Type>());
       foreach (var stmt in body) {
         if (stmt is VarDeclStmt) {
+
           var vds = stmt as VarDeclStmt;
+
           // register local variable declarations
           foreach (var local in vds.Locals) {
             try {

@@ -28,7 +28,7 @@ namespace Microsoft.Dafny.Tacny.Atomic {
         } else if (nameExpr is NameSegment) {
         var id = nameExpr as NameSegment;
         if (!state.ContainTVal(id.Name)) {
-          state.ReportTacticError(statement.Tok, "Fail to register variable" + id.Name);
+          state.ReportTacticError(statement.Tok, "Fail to register variable " + id.Name);
           yield break;
         } else {
           name = id.Name;

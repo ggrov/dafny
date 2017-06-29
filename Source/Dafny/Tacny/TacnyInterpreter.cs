@@ -335,7 +335,7 @@ namespace Microsoft.Dafny.Tacny
         List<bool> returned = null;
 
         //check if any new added coded reuqires to call verifier, or reach the last line of code
-        if ((rep.NeedVerify && rep.GetVerifyN() == 1)|| rep.IsCurFrameEvaluated()) {
+        if ((rep.NeedVerify && rep.GetVerifyN() == 1) || rep.IsCurFrameEvaluated()) {
           foreach(var s in proofState) {
             s.ResetVerifyN();
             s.NeedVerify = false;
@@ -388,14 +388,11 @@ namespace Microsoft.Dafny.Tacny
             }
           }
         }
-        /*
+     /*
      * when failed, check if this method is evaluated , i.e. all tstmt are evalauted,
      * if so, do nothing will dischard this branch and continue with the next one
      * otherwise, continue to evaluate the next stmt
      */
-
-        rep = proofState[0];
-
         if(!rep.IsCurFrameEvaluated()) {
           //push the current one to the stack
           stack.Push(enumerator);

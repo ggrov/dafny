@@ -135,6 +135,11 @@ namespace Microsoft.Dafny.Tacny{
         if (!Util.CheckTacticArgs(tactic, aps0, this, out errMsg)) {
           ReportTacticError(aps0.tok, errMsg);
         }
+        if(tactic.Outs.Count > 1) 
+          ReportTacticError(aps0.tok, "Only one return variable is allowed: " + tactic.Name);
+        if(stmt0.Tok.pos != aps0.tok.pos && tactic.Outs.Count != 1)
+          ReportTacticError(aps0.tok, "Expect one return variable: " + tactic.Name);
+
         //get the unresolved stmt
         stmt = GetTacticAppStmt(stmt0);
         aps = Expr.TacticAppExprFinder.GetTacticAppExpr(this, stmt);
@@ -411,7 +416,8 @@ namespace Microsoft.Dafny.Tacny{
             if(code != null) {
               return new List<Statement>() { code };
             }
-          }
+          } else
+            ReportTacticError(this.TopLevelTacApp.Tok, "The return value has not been assigned.");
           return new List<Statement>();
         }
       }
