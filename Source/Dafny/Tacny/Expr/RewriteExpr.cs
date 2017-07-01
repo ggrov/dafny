@@ -472,6 +472,12 @@ namespace Microsoft.Dafny.Tacny.Expr {
       finder.CloneStmt(stmt);
       return finder._aps;
     }
+
+    public static ApplySuffix GetTacticAppExpr(ProofState ps, Expression expr) {
+      var finder = new TacticAppExprFinder(ps);
+      finder.CloneExpr(expr);
+      return finder._aps;
+    }
   }
 
   class RenameVar : Cloner {

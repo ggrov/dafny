@@ -245,6 +245,27 @@ namespace Microsoft.Dafny.Tacny {
         var stmt = body[i];
         if(stmt is BlockStmt)
           RemoveUnfoldedTacticCalls((stmt as BlockStmt).Body, state);
+        else if (stmt is WhileStmt){
+          var whileStmt = stmt as WhileStmt;
+          //remove inv with tac call
+          if (whileStmt.Invariants != null && whileStmt.Invariants.Count > 0){
+            for (int j = 0; j < whileStmt.Invariants.Count; j++){
+              var aps = Expr.TacticAppExprFinder.GetTacticAppExpr(state, whileStmt.Invariants[j].E);
+              if(aps != null)
+                whileStmt.Invariants.RemoveAt(i);
+            }
+          }
+          //remove var with tac call
+          if(whileStmt.Decreases != null && whileStmt.Decreases.Expressions != null &&
+            whileStmt.Decreases.Expressions.Count > 0) {
+            for(int j = 0; j < whileStmt.Decreases.Expressions.Count; j++) {
+              var aps = Expr.TacticAppExprFinder.GetTacticAppExpr(state, whileStmt.Decreases.Expressions[j]);
+              if(aps != null)
+                whileStmt.Decreases.Expressions.RemoveAt(i);
+            }
+          }
+          RemoveUnfoldedTacticCalls(whileStmt.Body.Body, state);
+        }
         else {
           var aps = Expr.TacticAppExprFinder.GetTacticAppExpr(state, stmt);
           if(aps != null)

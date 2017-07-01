@@ -6371,7 +6371,6 @@ namespace Microsoft.Dafny {
   public abstract class LoopStmt : Statement
   {
     public List<MaybeFreeExpression> Invariants;
-    public List<Statement> TInvariants;
     public Specification<Expression> Decreases;
     public bool InferredDecreases;  // filled in by resolution
     public readonly Specification<FrameExpression> Mod;

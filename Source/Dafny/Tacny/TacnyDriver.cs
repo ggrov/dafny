@@ -8,6 +8,7 @@ using System.Reflection;
 using System.Security.AccessControl;
 using Microsoft.Boogie;
 using Microsoft.Dafny.Tacny.Expr;
+using Microsoft.Win32.SafeHandles;
 
 namespace Microsoft.Dafny.Tacny
 {
@@ -228,23 +229,25 @@ namespace Microsoft.Dafny.Tacny
 
     private void InterpretWhileStmt(WhileStmt stmt, Stack<Dictionary<IVariable, Type>> frame)
     {
-      //TODO: need to check inv
-      /*
-      if (stmt.TInvariants != null && stmt.TInvariants.Count > 0) {
-        foreach (var tinv in stmt.TInvariants) {
-          if (tinv is UpdateStmt) {
-            var list = StackToDict(frame);
-
-            if (IfEvalTac) {
-              _branches.Add(
-                TacnyInterpreter.EvalTopLevelTactic(_state.Copy(), list, tinv as UpdateStmt, _errorReporterDelegate,
-                 _state.TargetMethod.CallsTactic != _tacticCalls + 1));
-              _tacticCalls++;
-            }
-
+      //unfold tactics in inv if there is any
+      if (stmt.Invariants != null && stmt.Invariants.Count > 0) {
+        foreach (var inv in stmt.Invariants) {
+          var aps = TacticAppExprFinder.GetTacticAppExpr(_state, inv.E);
+          if (aps != null){
+            UndfoldTacticCall(stmt, aps, StackToDict(frame));
           }
         }
-      }*/
+      }
+      //unfold tactics in var if there is an
+      if(stmt.Decreases != null && stmt.Decreases.Expressions != null &&
+        stmt.Decreases.Expressions.Count > 0) {
+        foreach(var v in stmt.Decreases.Expressions) {
+          var aps = TacticAppExprFinder.GetTacticAppExpr(_state, v);
+          if(aps != null) {
+            UndfoldTacticCall(stmt, aps, StackToDict(frame));
+          }
+        }
+      }
       InterpertBlockStmt(stmt.Body, frame);
     }
 
