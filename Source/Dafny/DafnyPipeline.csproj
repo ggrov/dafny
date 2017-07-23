@@ -173,9 +173,10 @@
     <Compile Include="Cloner.cs" />
     <Compile Include="Reporting.cs" />
     <Compile Include="Tacny\Atomic\Atomic.cs" />
-    <Compile Include="Tacny\Atomic\TacticInv.cs" />
     <Compile Include="Tacny\Atomic\Explore.cs" />
     <Compile Include="Tacny\Atomic\SuchThatAtomic.cs" />
+    <Compile Include="Tacny\EAtomic\Caller.cs" />
+    <Compile Include="Tacny\EAtomic\ExprDotPrj.cs" />
     <Compile Include="Tacny\EAtomic\PreCond.cs" />
     <Compile Include="Tacny\ErrHandler.cs" />
     <Compile Include="Tacny\EAtomic\PostCond.cs" />

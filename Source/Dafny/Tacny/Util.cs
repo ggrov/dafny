@@ -199,6 +199,10 @@ namespace Microsoft.Dafny.Tacny {
       return GetSignature(er.Expr as ApplySuffix);
     }
 
+    public static string GetSignature(ExprDotName dotName) {
+      return dotName.SuffixName;
+    }
+
     /// <summary>
     ///   Return the string signature of an ApplySuffix
     /// </summary>

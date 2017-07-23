@@ -232,6 +232,15 @@ namespace Microsoft.Dafny.Tacny.Expr {
               return new LiteralExpr(new Token(TacnyDriver.TacticCodeTokLine, 0), !value);
             }
             break;
+          case BinaryExpr.Opcode.Eq:
+            if(e0 is StringLiteralExpr && e1 is StringLiteralExpr &&
+              ((e0 as StringLiteralExpr).Value is String)){
+              var s = (e0 as StringLiteralExpr).Value as String;
+              return new LiteralExpr(new Token(TacnyDriver.TacticCodeTokLine, 0),
+                s != null && s.Equals((e1 as StringLiteralExpr).Value as string)
+                );
+            }
+            break;
           default:
             break;
         }
@@ -288,7 +297,7 @@ namespace Microsoft.Dafny.Tacny.Expr {
   /// <summary>
   /// only simplify tactic expression
   /// </summary>
-  class SimpExpr : Cloner{
+  class SimpExpr : Cloner {
     private readonly ProofState _state;
 
     protected SimpExpr(ProofState state) {
@@ -296,53 +305,65 @@ namespace Microsoft.Dafny.Tacny.Expr {
     }
 
 
-    internal bool IsTVar(Expression expr)
-    {
+    internal bool IsTVar(Expression expr) {
       string key = null;
-      if (expr is TacticLiteralExpr)
-        key = (string) ((TacticLiteralExpr) expr).Value;
-      else if (expr is NameSegment)
+      if(expr is TacticLiteralExpr)
+        key = (string)((TacticLiteralExpr)expr).Value;
+      else if(expr is NameSegment)
         key = (expr as NameSegment).Name;
 
       return key == null ? false : _state.ContainTVal(key);
     }
 
-    internal Expression EvalTVar(Expression expr, bool deref){
+    internal Expression EvalTVar(Expression expr, bool deref) {
 
       string key = null;
-      if (expr is TacticLiteralExpr)
+      if(expr is TacticLiteralExpr)
         key = (string)((TacticLiteralExpr)expr).Value;
-      else if (expr is NameSegment)
+      else if(expr is NameSegment)
         key = (expr as NameSegment).Name;
 
-      if (key == null) {
+      if(key == null) {
         throw new Exception("expression for TVar can only be TacticLiteralExpr or NameSegment: " + expr);
       }
 
       var value = _state.GetTVarValue(key);
-      if (deref && value is TacticLiteralExpr && IsTVar(value as TacticLiteralExpr))
+      if(deref && value is TacticLiteralExpr && IsTVar(value as TacticLiteralExpr))
         return EvalTVar(value as TacticLiteralExpr, true);
       else
         return value;
     }
 
-    internal bool IsEAtmoicCall(ApplySuffix aps){
+    internal bool IsEAtmoicCall(ExprDotName aps) {
       return EAtomic.EAtomic.IsEAtomicSig(Util.GetSignature(aps));
     }
 
-    internal Expression EvalEAtomExpr(ApplySuffix aps){
-      var sig = Util.GetSignature(aps);
-      var types = Assembly.GetAssembly(typeof(EAtomic.EAtomic)).GetTypes()
-        .Where(t => t.IsSubclassOf(typeof(EAtomic.EAtomic)));
-      foreach (var eType in types){
-        var eatomInst = Activator.CreateInstance(eType) as EAtomic.EAtomic;
-        if (sig == eatomInst?.Signature){
-          //TODO: validate input countx
-            return eatomInst?.Generate(aps, _state);
+    internal bool IsEAtmoicCall(ApplySuffix aps) {
+      return EAtomic.EAtomic.IsEAtomicSig(Util.GetSignature(aps));
+    }
+
+    internal Expression EvalEAtomExpr(Expression expr) {
+      string sig = null;
+      if(expr is ExprDotName) {
+        sig = Util.GetSignature(expr as ExprDotName);
+      } else if(expr is ApplySuffix) {
+        sig = Util.GetSignature(expr as ApplySuffix);
+      }
+      if(sig != null) {
+        var types = Assembly.GetAssembly(typeof(EAtomic.EAtomic)).GetTypes()
+          .Where(t => t.IsSubclassOf(typeof(EAtomic.EAtomic)));
+        foreach(var eType in types) {
+          var eatomInst = Activator.CreateInstance(eType) as EAtomic.EAtomic;
+          if(sig == eatomInst?.Signature) {
+            //TODO: validate input countx
+            return eatomInst?.Generate(expr, _state);
+          }
         }
+        return null;
       }
       return null;
     }
+  
 
     internal bool IsETacticCall(ApplySuffix aps){
       //TODO: this is for expression tactic call, e.g. funtion tactic
@@ -358,8 +379,7 @@ namespace Microsoft.Dafny.Tacny.Expr {
       var e = new SimpExpr(state);
       if (e.IsTVar(expr))
         return e.EvalTVar(expr, true);
-      else
-      {
+      else{
         var suffix = expr as ApplySuffix;
         if (suffix != null){
           var aps = suffix;
@@ -380,12 +400,13 @@ namespace Microsoft.Dafny.Tacny.Expr {
 
     public static Expression SimpTacticExpr(ProofState state, Expression expr){
       var simplifier = new SimpExpr(state);
-      return simplifier.CloneExpr(expr);
+      var ret = simplifier.CloneExpr(expr);
+      return ret;
     }
 
     public override Expression CloneApplySuffix(ApplySuffix e){
       if (IsEAtmoicCall(e)){
-         return EvalEAtomExpr(e);
+        return EvalEAtomExpr(e);
       }
       else if (IsETacticCall(e)){
         return (EvalETacticCall(e) as Expression);
@@ -393,20 +414,26 @@ namespace Microsoft.Dafny.Tacny.Expr {
       else
         return base.CloneApplySuffix(e);
     }
-   
 
-    public override Expression CloneExpr(Expression expr)
-    {
-      var suffix = expr as ApplySuffix;
-      if (suffix != null)
+
+    public override Expression CloneExpr(Expression expr){
+      if (IsTVar(expr)){
+        var ret =  EvalTVar(expr, true);
+        return ret != null ? ret : base.CloneExpr(expr);
+      } else if (expr is ExprDotName){
+        if (IsEAtmoicCall(expr as ExprDotName)){
+          return EvalEAtomExpr(expr as ExprDotName);
+        }
+        else
+          return base.CloneExpr(expr);
+      }
+      else if (expr is ApplySuffix){
+        var suffix = expr as ApplySuffix;
         return CloneApplySuffix(suffix);
-      else if (IsTVar(expr)){
-        return (EvalTVar(expr, true));
       }
       else
         return base.CloneExpr(expr);
     }
-
   }
 
   class TacticAppUnfolder : Cloner {

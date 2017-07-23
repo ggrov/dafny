@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
+using System.IO.Pipes;
 using System.Linq;
 using Microsoft.Boogie;
 using Microsoft.Dafny.Tacny.Expr;
@@ -38,14 +39,16 @@ namespace Microsoft.Dafny.Tacny.Atomic {
         yield break;
       }
 
-      //expr should be in the shape of x in|notin set [&& ...]
       string errInfo;
-      if (!CheckExpr(suchThat.Expr, out errInfo)) {
+      //  var expr = Expr.SimpExpr.SimpTacticExpr(state, suchThat.Expr);
+      var expr = suchThat.Expr;
+      /*
+      if (!CheckExpr(expr, out errInfo)) {
         state.ReportTacticError(statement.Tok, "Unexpceted expression in suchthat statement: " + errInfo);
         yield break;
-      }
-      Expression pos, neg;
-      RewriteExpr(suchThat.Expr as BinaryExpr, out pos, out neg);
+      }*/
+      Expression pos, neg, pred;
+      RewriteExpr(expr as BinaryExpr, out pos, out neg, out pred);
 
       if (pos != null) {
         pos = EvalExpr.EvalTacticExpression(state, pos);
@@ -75,6 +78,8 @@ namespace Microsoft.Dafny.Tacny.Atomic {
         }
       
         foreach (var item in eles) {
+          var copy = state.Copy();
+          copy.UpdateTacticVar(name, item);
 
           if (neg != null) {
             var inNeg = EvalExpr.EvalTacticExpression(state,
@@ -85,10 +90,21 @@ namespace Microsoft.Dafny.Tacny.Atomic {
             } else {
               throw new Exception("A unhandled error orrurs when evaluating a suchtaht statement");
             }
-          } 
-          var copy = state.Copy();
-          copy.UpdateTacticVar(name, item);
-          Console.WriteLine(Printer.ExprToString(item));
+          }
+          if (pred != null){
+            var value = new BinaryExpr(new Token(TacnyDriver.TacticCodeTokLine, 0), 
+              BinaryExpr.Opcode.Eq, suchThat.Lhss[0].Copy(), item);
+            var candidate = new BinaryExpr(new Token(TacnyDriver.TacticCodeTokLine, 0), BinaryExpr.Opcode.Add, value, pred);
+            var res = EvalExpr.EvalTacticExpression(copy, pred);
+            Console.WriteLine(Printer.ExprToString(res));
+            if(res is LiteralExpr && (res as LiteralExpr).Value is bool) {
+              if(!(bool)(res as LiteralExpr).Value)
+                continue;
+            } else {
+              throw new Exception("A unhandled error orrurs when evaluating a suchtaht statement");
+            }
+          }
+          
           yield return copy;
         }
       } else {
@@ -107,7 +123,7 @@ namespace Microsoft.Dafny.Tacny.Atomic {
         expr = e1 ?? e2;
       }
     }
-    internal void UnionSetExpr(Expression e1, Expression e2, out Expression expr)
+    internal void UnionExpr(Expression e1, Expression e2, out Expression expr)
     {
       if (e1 != null && e2 != null)
         expr = new BinaryExpr(new Token(TacnyDriver.TacticCodeTokLine, 0),
@@ -118,31 +134,40 @@ namespace Microsoft.Dafny.Tacny.Atomic {
         expr = e1 ?? e2;
       }
     }
+    
     /// <summary>
     /// remove &&, and change in --> union, notin --> setminus
     /// </summary>
     /// <returns></returns>
-    internal void RewriteExpr(BinaryExpr destExpr, out Expression posExpr, out Expression negExpr)
+    internal void RewriteExpr(BinaryExpr destExpr, out Expression posExpr, out Expression negExpr, 
+      out Expression pred)
     {
 
       switch (destExpr.Op) {
         case BinaryExpr.Opcode.And:
-          Expression posExpr1, posExpr2, negExpr1, negExpr2;
-          RewriteExpr(destExpr.E0 as BinaryExpr, out posExpr1, out negExpr1);
-          RewriteExpr(destExpr.E1 as BinaryExpr, out posExpr2, out negExpr2);
+          Expression posExpr1, posExpr2, negExpr1, negExpr2, pred1, pred2;
+          RewriteExpr(destExpr.E0 as BinaryExpr, out posExpr1, out negExpr1, out pred1);
+          RewriteExpr(destExpr.E1 as BinaryExpr, out posExpr2, out negExpr2, out pred2);
           IntersectSetExpr(posExpr1, posExpr2, out posExpr);
-          UnionSetExpr(negExpr1,negExpr2, out negExpr);
+          UnionExpr(negExpr1,negExpr2, out negExpr);
+          UnionExpr(pred1, pred2, out pred);
           break;
         case BinaryExpr.Opcode.In:
           posExpr = destExpr.E1;
           negExpr = null;
+          pred = null;
           break;
         case BinaryExpr.Opcode.NotIn:
           negExpr = destExpr.E1;
           posExpr = null;
+          pred = null;
           break;
         default:
-          throw new Exception("suchthat error: not supported expression");
+          negExpr = null;
+          posExpr = null;
+          pred = destExpr;
+          break;
+        //throw new Exception("suchthat error: not supported expression");
       }
     }
     internal bool CheckExpr(Expression expr, out string err)

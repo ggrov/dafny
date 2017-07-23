@@ -89,9 +89,8 @@ namespace Microsoft.Dafny.Tacny
       }
       // no frame control is triggered
       if (enumerable == null) {
-        var declaration = stmt as TacticVarDeclStmt;
-        if (declaration != null) {
-          enumerable = RegisterVariable(declaration, state);
+        if (stmt is TacticVarDeclStmt) {
+          enumerable = RegisterVariable(stmt as TacticVarDeclStmt, state);
         } else if (stmt is AssignSuchThatStmt) {
           enumerable = EvalSuchThatStmt((AssignSuchThatStmt)stmt, state);
         } else if (stmt is PredicateStmt) {
@@ -146,48 +145,38 @@ namespace Microsoft.Dafny.Tacny
     }
 
     public static IEnumerable<ProofState> RegisterVariable(TacticVarDeclStmt declaration, ProofState state) {
-      if (declaration.Update == null)
-        yield break;
+
       var rhs = declaration.Update as UpdateStmt;
-      if (rhs == null) {
-        // check if rhs is SuchThatStmt
-        var stmt = declaration.Update as AssignSuchThatStmt;
-        if (stmt != null) {
-          foreach (var item in declaration.Locals)
-            state.AddTacnyVar(item, null);
-          foreach (var item in EvalSuchThatStmt(stmt, state)) {
-            yield return item;
-          }
-          yield break;
-        } else {
-          foreach (var item in declaration.Locals)
-            state.AddTacnyVar(item, null);
-        }
-      } else {
-        foreach (var item in rhs.Rhss) {
+      if(rhs != null) {
+        foreach(var item in rhs.Rhss) {
           int index = rhs.Rhss.IndexOf(item);
           Contract.Assert(declaration.Locals.ElementAtOrDefault(index) != null, "register var err");
           var exprRhs = item as ExprRhs;
-          if (exprRhs?.Expr is ApplySuffix) {
-            var aps = (ApplySuffix)exprRhs.Expr;
-            var result = SimpExpr.UnfoldTacticProjection(state, aps);
-            state.AddTacnyVar(declaration.Locals[index], result);
-          } else if (exprRhs?.Expr is Microsoft.Dafny.LiteralExpr) {
-            state.AddTacnyVar(declaration.Locals[index], (Microsoft.Dafny.LiteralExpr)exprRhs?.Expr);
-          } else if (exprRhs?.Expr is Microsoft.Dafny.NameSegment) {
-            var name = ((Microsoft.Dafny.NameSegment)exprRhs.Expr).Name;
-            if (state.ContainTVal(name))
-              // in the case that referring to an exisiting tvar, dereference it
-              state.AddTacnyVar(declaration.Locals[index], state.GetTVarValue(name));
-          } else {
-            var res = EvalExpr.EvalTacticExpression(state, exprRhs?.Expr);
-            if (res == null)
-              yield break;
+          var res = EvalExpr.EvalTacticExpression(state, exprRhs?.Expr);
+          if(res != null) {
             state.AddTacnyVar(declaration.Locals[index], res);
+            yield return state;
           }
         }
+      } else {
+        var stmt = declaration.Update as AssignSuchThatStmt;
+        if(stmt != null) {
+          foreach(var item in declaration.Locals)
+            state.AddTacnyVar(item, null);
+          foreach(var item in EvalSuchThatStmt(stmt, state)) {
+            yield return item;
+          }
+        } else {
+          foreach(var item in declaration.Locals)
+            if(state.ContainTVal(item.Name)) {
+              state.ReportTacticError(item.Tok, item.Name + " has already been defined in the current scope.");
+              yield break;
+            } else 
+              state.AddTacnyVar(item, null);
+
+          yield return state;
+        }
       }
-      yield return state;
     }
 
     [Pure]
@@ -327,7 +316,7 @@ namespace Microsoft.Dafny.Tacny
             break;
         }
 
-        //should at alease one state in the list, use [0] as a typical state;
+        //should at least one state in the list, use [0] as a typical state;
         var rep = proofState[0];
         backtrackList = rep.GetBackTrackCount();
 

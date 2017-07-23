@@ -30,7 +30,7 @@ namespace Microsoft.Dafny.Tacny.EAtomic {
       foreach (var x in vars) {
         ret.Add(new TacticLiteralExpr(x.Variable.Name));
       }
-      return GenerateEAtomExpr(ret);
+      return GenerateEAtomExprAsSeq(ret);
     }
   }
 }

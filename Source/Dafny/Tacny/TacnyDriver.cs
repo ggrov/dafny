@@ -189,12 +189,13 @@ namespace Microsoft.Dafny.Tacny
           var whileStmt = stmt as WhileStmt;
           InterpretWhileStmt(whileStmt, frame);
         } else if (stmt is UpdateStmt) {
-          if (_state.IsTacticCall(stmt as UpdateStmt)) {
+          if(_state.IsTacticCall(stmt as UpdateStmt)) {
             UndfoldTacticCall(stmt, Util.GetTacticAppExpr(stmt as UpdateStmt), StackToDict(frame));
-          }
-          var expr = TacticAppExprFinder.GetTacticAppExpr(_state, stmt);
-          if(expr != null) {
-            UndfoldTacticCall(stmt, expr, StackToDict(frame));
+          } else {
+            var expr = TacticAppExprFinder.GetTacticAppExpr(_state, stmt);
+            if(expr != null) {
+              UndfoldTacticCall(stmt, expr, StackToDict(frame));
+            }
           }
         } else if (stmt is InlineTacticBlockStmt) {
           UndfoldTacticCall(stmt, null, StackToDict(frame));
