@@ -215,6 +215,7 @@ namespace Microsoft.Dafny.Tacny.EAtomic {
       }
     }
   }
+/*
   class IfRecursive : EAtomic {
     public override string Signature => "recursive?";
     public override int ArgsCount => 0;
@@ -226,6 +227,32 @@ namespace Microsoft.Dafny.Tacny.EAtomic {
           //return new LiteralExpr(new Boogie.Token(TacnyDriver.TacticCodeTokLine, 0), false);
       } else {
         proofState.ReportTacticError(expr.tok, "Illform for \"const?\", expect form in the shape of *.const?");
+        return null;
+      }
+    }
+  }
+  */
+
+  class IfUnfold : EAtomic {
+    public override string Signature => "unfold?";
+    public override int ArgsCount => 0;
+
+    public override Expression Generate(Expression expr, ProofState proofState) {
+      if(expr is ExprDotName) {
+        //ApplySurffix and E0 lhs is NameSegment and string is a function
+        var src = Expr.SimpExpr.SimpTacticExpr(proofState, (expr as ExprDotName).Lhs);
+        if (src is ApplySuffix){
+          var aps = src as ApplySuffix;
+          if (aps.Lhs is NameSegment &&
+             proofState.Members.ContainsKey((aps.Lhs as NameSegment).Name) &&
+             proofState.Members[(aps.Lhs as NameSegment).Name] is Function)
+
+            return new LiteralExpr(new Boogie.Token(TacnyDriver.TacticCodeTokLine, 0), true);
+        }
+        return new LiteralExpr(new Boogie.Token(TacnyDriver.TacticCodeTokLine, 0), false);
+
+      } else {
+        proofState.ReportTacticError(expr.tok, "Illform for \"unfold?\", expect form in the shape of *.unfold?");
         return null;
       }
     }

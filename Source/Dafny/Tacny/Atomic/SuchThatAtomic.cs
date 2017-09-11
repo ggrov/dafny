@@ -48,8 +48,10 @@ namespace Microsoft.Dafny.Tacny.Atomic {
         yield break;
       }*/
       Expression pos, neg, pred;
-      RewriteExpr(expr as BinaryExpr, out pos, out neg, out pred);
-
+      if (!RewriteExpr(expr as BinaryExpr, out pos, out neg, out pred)){
+        state.ReportTacticError(expr.tok, "Syntax error in Suchthat expression.");
+        yield break;
+      }
       if (pos != null) {
         pos = EvalExpr.EvalTacticExpression(state, pos);
         if (pos == null)
@@ -139,35 +141,50 @@ namespace Microsoft.Dafny.Tacny.Atomic {
     /// remove &&, and change in --> union, notin --> setminus
     /// </summary>
     /// <returns></returns>
-    internal void RewriteExpr(BinaryExpr destExpr, out Expression posExpr, out Expression negExpr, 
+    internal bool RewriteExpr(BinaryExpr destExpr, out Expression posExpr, out Expression negExpr, 
       out Expression pred)
     {
+      if (destExpr == null){
+        posExpr = null;
+        negExpr = null;
+        pred = null;
 
-      switch (destExpr.Op) {
-        case BinaryExpr.Opcode.And:
-          Expression posExpr1, posExpr2, negExpr1, negExpr2, pred1, pred2;
-          RewriteExpr(destExpr.E0 as BinaryExpr, out posExpr1, out negExpr1, out pred1);
-          RewriteExpr(destExpr.E1 as BinaryExpr, out posExpr2, out negExpr2, out pred2);
-          IntersectSetExpr(posExpr1, posExpr2, out posExpr);
-          UnionExpr(negExpr1,negExpr2, out negExpr);
-          UnionExpr(pred1, pred2, out pred);
-          break;
-        case BinaryExpr.Opcode.In:
-          posExpr = destExpr.E1;
-          negExpr = null;
-          pred = null;
-          break;
-        case BinaryExpr.Opcode.NotIn:
-          negExpr = destExpr.E1;
-          posExpr = null;
-          pred = null;
-          break;
-        default:
-          negExpr = null;
-          posExpr = null;
-          pred = destExpr;
-          break;
-        //throw new Exception("suchthat error: not supported expression");
+        return false;
+      }
+      else{
+        switch (destExpr.Op){
+          case BinaryExpr.Opcode.And:
+            Expression posExpr1, posExpr2, negExpr1, negExpr2, pred1, pred2;
+            if (RewriteExpr(destExpr.E0 as BinaryExpr, out posExpr1, out negExpr1, out pred1)){
+              if (RewriteExpr(destExpr.E1 as BinaryExpr, out posExpr2, out negExpr2, out pred2)){
+                IntersectSetExpr(posExpr1, posExpr2, out posExpr);
+                UnionExpr(negExpr1, negExpr2, out negExpr);
+                UnionExpr(pred1, pred2, out pred);
+                break;
+              }
+            }
+            posExpr = null;
+            negExpr = null;
+            pred = null;
+            return false;
+          case BinaryExpr.Opcode.In:
+            posExpr = destExpr.E1;
+            negExpr = null;
+            pred = null;
+            break;
+          case BinaryExpr.Opcode.NotIn:
+            negExpr = destExpr.E1;
+            posExpr = null;
+            pred = null;
+            break;
+          default:
+            negExpr = null;
+            posExpr = null;
+            pred = destExpr;
+            break;
+          //throw new Exception("suchthat error: not supported expression");
+        }
+        return true;
       }
     }
     internal bool CheckExpr(Expression expr, out string err)
