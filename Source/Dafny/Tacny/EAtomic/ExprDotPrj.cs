@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Dafny.Tacny.Expr;
 
 namespace Microsoft.Dafny.Tacny.EAtomic {
   
@@ -253,6 +254,32 @@ namespace Microsoft.Dafny.Tacny.EAtomic {
 
       } else {
         proofState.ReportTacticError(expr.tok, "Illform for \"unfold?\", expect form in the shape of *.unfold?");
+        return null;
+      }
+    }
+  }
+
+  class Unfold : EAtomic {
+    public override string Signature => "unfold";
+    public override int ArgsCount => 0;
+
+    public override Expression Generate(Expression expr, ProofState proofState) {
+      if(expr is ExprDotName) {
+        //ApplySurffix and E0 lhs is NameSegment and string is a function
+        var src = Expr.SimpExpr.SimpTacticExpr(proofState, (expr as ExprDotName).Lhs);
+        if(src is ApplySuffix) {
+          var aps = src as ApplySuffix;
+          if (aps.Lhs is NameSegment &&
+              proofState.Members.ContainsKey((aps.Lhs as NameSegment).Name) &&
+              proofState.Members[(aps.Lhs as NameSegment).Name] is Function){
+            return InstVar.UnfoldFunction(src as ApplySuffix, proofState);
+          }
+        }
+        proofState.ReportTacticError(expr.tok, "Expression can not be unfolded.");
+        return null;
+
+      } else {
+        proofState.ReportTacticError(expr.tok, "Illform for \"unfold\", expect form in the shape of *.unfold");
         return null;
       }
     }

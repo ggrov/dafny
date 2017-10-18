@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Reflection;
+using System.Runtime.Remoting.Channels;
 using System.Security.Policy;
 
 
@@ -504,6 +505,47 @@ namespace Microsoft.Dafny.Tacny.Expr {
       var finder = new TacticAppExprFinder(ps);
       finder.CloneExpr(expr);
       return finder._aps;
+    }
+  }
+
+  class InstVar : Cloner{
+    private readonly Dictionary<string, Expression> _inst;
+
+    private InstVar(){
+      _inst = new Dictionary<string, Expression>();
+    }
+
+    public static Expression UnfoldFunction(ApplySuffix aps, ProofState ps){
+      if (aps.Lhs is NameSegment &&
+          ps.Members.ContainsKey((aps.Lhs as NameSegment).Name) &&
+          ps.Members[(aps.Lhs as NameSegment).Name] is Function){
+        var src = ps.Members[(aps.Lhs as NameSegment).Name] as Function;
+        if(src.Formals.Count == aps.Args.Count){
+          //for the case when there is no arguemnt, just return a cloned body of the function
+          if (src.Formals.Count == 0)
+            return new Cloner().CloneExpr(src.Body);
+
+          //for the cases with arguemnts. add arg to the dic
+          var inster = new InstVar();
+          for(var i = 0; i < src.Formals.Count; i++){
+            inster._inst.Add(src.Formals[i].Name, aps.Args[i]);
+          }
+
+          return inster.CloneExpr(src.Body);
+        }
+        
+      }
+      ps.ReportTacticError(aps.tok, Printer.ExprToString(aps)+ " can not be unfolded.");
+      return new Cloner().CloneExpr(aps);
+    }
+
+    public override Expression CloneNameSegment(Expression expr) {
+      var e = (NameSegment)expr;
+      if (_inst.ContainsKey(e.Name)){
+        return new Cloner().CloneExpr(_inst[e.Name]);
+      }
+      return new NameSegment(Tok(e.tok), e.Name, e.OptTypeArguments?.ConvertAll(CloneType));
+      
     }
   }
 
