@@ -14,24 +14,14 @@ lemma ltest(d : Dummy)
    tac(d);
 }
 
-lemma ltest2(d : Dummy)
- ensures true
+tactic tac(b: term)
 {
-   //tac(d);
-}
-
-tactic tac(b: Element)
-{
-
-	//     assert true;
 	assert false;
 	assert true;
-	dummyTac(b);
-
-	
+	dummyTac(b);	
 }
 
-tactic dummyTac (c: Element)
+tactic dummyTac (c: term)
 {
 	tmatch c {
     tvar vs := tactic.input;
