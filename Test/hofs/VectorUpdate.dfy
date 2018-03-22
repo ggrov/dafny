@@ -1,9 +1,8 @@
-// RUN: %dafny /compile:3 /autoTriggers:1 "%s" > "%t"
+// RUN: %dafny /compile:3 "%s" > "%t"
 // RUN: %diff "%s.expect" "%t"
 
 // this is a rather verbose version of the VectorUpdate method
-method VectorUpdate<A>(N: int, a : array<A>, f : (int,A) -> A)
-  requires a != null
+method VectorUpdate<A>(N: int, a : array<A>, f : (int,A) ~> A)
   requires N == a.Length
   requires forall j :: 0 <= j < N ==> f.requires(j,a[j])
   requires forall j :: 0 <= j < N ==> a !in f.reads(j,a[j])
@@ -25,8 +24,7 @@ method VectorUpdate<A>(N: int, a : array<A>, f : (int,A) -> A)
 }
 
 // here's a shorter version of the method above
-method VectorUpdate'<A>(a : array<A>, f : (int,A) -> A)
-  requires a != null
+method VectorUpdate'<A>(a : array<A>, f : (int,A) ~> A)
   requires forall j :: 0 <= j < a.Length ==> a !in f.reads(j,a[j]) && f.requires(j,a[j])
   modifies a
   ensures forall j :: 0 <= j < a.Length ==> a[j] == f(j,old(a[j]))
@@ -43,8 +41,7 @@ method VectorUpdate'<A>(a : array<A>, f : (int,A) -> A)
 }
 
 // here's yet another version
-method VectorUpdate''<A>(a : array<A>, f : (int,A) -> A)
-  requires a != null
+method VectorUpdate''<A>(a : array<A>, f : (int,A) ~> A)
   requires forall j :: 0 <= j < a.Length ==> a !in f.reads(j,a[j]) && f.requires(j,a[j])
   modifies a
   ensures forall j :: 0 <= j < a.Length ==> a[j] == f(j,old(a[j]))
@@ -77,7 +74,6 @@ method Main()
 }
 
 method PrintArray(a : array<int>)
-  requires a != null
 {
   var i := 0;
   while i < a.Length {

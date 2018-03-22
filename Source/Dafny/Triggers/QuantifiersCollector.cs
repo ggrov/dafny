@@ -7,10 +7,10 @@ using System.Collections.ObjectModel;
 using System.Diagnostics.Contracts;
 
 namespace Microsoft.Dafny.Triggers {
-  internal class QuantifierCollector : TopDownVisitor<bool> {
+  internal class QuantifierCollector : TopDownVisitor<OldExpr/*?*/> {
     readonly ErrorReporter reporter;
     private readonly HashSet<Expression> quantifiers = new HashSet<Expression>();
-    internal readonly HashSet<Expression> exprsInOldContext = new HashSet<Expression>();
+    internal readonly Dictionary<Expression, HashSet<OldExpr>> exprsInOldContext = new Dictionary<Expression, HashSet<OldExpr>>();
     internal readonly List<QuantifiersCollection> quantifierCollections = new List<QuantifiersCollection>();
 
     public QuantifierCollector(ErrorReporter reporter) {
@@ -18,11 +18,11 @@ namespace Microsoft.Dafny.Triggers {
       this.reporter = reporter;
     }
 
-    protected override bool VisitOneExpr(Expression expr, ref bool inOldContext) {
+    protected override bool VisitOneExpr(Expression expr, ref OldExpr/*?*/ enclosingOldContext) {
       var e = expr as ComprehensionExpr;
 
       // only consider quantifiers that are not empty (Bound.Vars.Count > 0)
-      if (e != null && (e.BoundVars.Count > 0) && !quantifiers.Contains(e)) {
+      if (e != null && e.BoundVars.Count > 0 && !quantifiers.Contains(e)) {
         if (e is SetComprehension || e is MapComprehension) {
           quantifiers.Add(e);
           quantifierCollections.Add(new QuantifiersCollection(e, Enumerable.Repeat(e, 1), reporter));
@@ -40,15 +40,23 @@ namespace Microsoft.Dafny.Triggers {
       }
 
       if (expr is OldExpr) {
-        inOldContext = true;
-      } else if (inOldContext) { // FIXME be more restrctive on the type of stuff that we annotate
-        exprsInOldContext.Add(expr);
+        enclosingOldContext = (OldExpr)expr;
+      } else if (enclosingOldContext != null) { // FIXME be more restrctive on the type of stuff that we annotate
+        // Add the association (expr, oldContext) to exprsInOldContext. However, due to chaining expressions,
+        // expr may already be a key in exprsInOldContext.
+        HashSet<OldExpr> prevValue;
+        if (exprsInOldContext.TryGetValue(expr, out prevValue)) {
+          prevValue.Add(enclosingOldContext);
+        } else {
+          var single = new HashSet<OldExpr>() { enclosingOldContext };
+          exprsInOldContext.Add(expr, single);
+        }
       }
 
       return true;
     }
 
-    protected override bool VisitOneStmt(Statement stmt, ref bool st) {
+    protected override bool VisitOneStmt(Statement stmt, ref OldExpr/*?*/ st) {
       if (stmt is ForallStmt) {
         ForallStmt s = (ForallStmt)stmt;
         if (s.ForallExpressions != null) {

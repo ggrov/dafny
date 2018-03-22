@@ -2,16 +2,16 @@
 // RUN: %diff "%s.expect" "%t"
 
 class Node<T> {
-  ghost var List: seq<T>;
-  ghost var Repr: set<Node<T>>;
+  ghost var List: seq<T>
+  ghost var Repr: set<Node<T>>
 
-  var data: T;
-  var next: Node<T>;
+  var data: T
+  var next: Node?<T>
 
   predicate Valid()
     reads this, Repr
   {
-    this in Repr && null !in Repr &&
+    this in Repr &&
     (next == null ==> List == [data]) &&
     (next != null ==>
         next in Repr && next.Repr <= Repr &&
@@ -21,7 +21,6 @@ class Node<T> {
   }
 
   constructor (d: T)
-    modifies this
     ensures Valid() && fresh(Repr - {this})
     ensures List == [d]
   {
@@ -30,8 +29,7 @@ class Node<T> {
   }
 
   constructor InitAsPredecessor(d: T, succ: Node<T>)
-    requires succ != null && succ.Valid() && this !in succ.Repr;
-    modifies this;
+    requires succ.Valid()
     ensures Valid() && fresh(Repr - {this} - succ.Repr);
     ensures List == [d] + succ.List;
   {
@@ -42,7 +40,7 @@ class Node<T> {
 
   method Prepend(d: T) returns (r: Node<T>)
     requires Valid()
-    ensures r != null && r.Valid() && fresh(r.Repr - old(Repr))
+    ensures r.Valid() && fresh(r.Repr - old(Repr))
     ensures r.List == [d] + List
   {
     r := new Node.InitAsPredecessor(d, this);
@@ -53,7 +51,7 @@ class Node<T> {
 		decreases |List|
 	{
 		print data;
-		if (next != null) {
+		if next != null {
 			next.Print();
 		}
 	}

@@ -1,4 +1,4 @@
-// RUN: %dafny /compile:3 /rprint:"%t.rprint" /autoTriggers:1 "%s" > "%t"
+// RUN: %dafny /compile:3 /rprint:"%t.rprint" "%s" > "%t"
 // RUN: %diff "%s.expect" "%t"
 // The usual recursive method for computing McCarthy's 91 function
 
@@ -60,7 +60,6 @@ function method mc91(n: int): int
 // Iterating a function f e times starting from n
 
 function method iter(e: nat, f: int -> int, n: int): int
-  requires forall x :: f.requires(x) && f.reads(x) == {}
 {
   if e == 0 then n else iter(e-1, f, f(n))
 }

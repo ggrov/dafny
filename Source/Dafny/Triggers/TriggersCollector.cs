@@ -144,16 +144,16 @@ namespace Microsoft.Dafny.Triggers {
   }
 
   internal class TriggerAnnotationsCache {
-    public readonly HashSet<Expression> exprsInOldContext;
+    public readonly Dictionary<Expression, HashSet<OldExpr>> exprsInOldContext;
     public readonly Dictionary<Expression, TriggerAnnotation> annotations;
 
     /// <summary>
     /// For certain operations, the TriggersCollector class needs to know whether 
-    /// an particular expression is under an old(...) wrapper. This is in particular 
-    /// true for generating trigger terms (but it is not for checking wehter something 
+    /// a particular expression is under an old(...) wrapper. This is in particular 
+    /// true for generating trigger terms (but it is not for checking whether something 
     /// is a trigger killer, so passing an empty set here for that case would be fine.
     /// </summary>
-    public TriggerAnnotationsCache(HashSet<Expression> exprsInOldContext) {
+    public TriggerAnnotationsCache(Dictionary<Expression, HashSet<OldExpr>> exprsInOldContext) {
       this.exprsInOldContext = exprsInOldContext;
       annotations = new Dictionary<Expression, TriggerAnnotation>();
     }
@@ -162,7 +162,7 @@ namespace Microsoft.Dafny.Triggers {
   internal class TriggersCollector {
     TriggerAnnotationsCache cache;
 
-    internal TriggersCollector(HashSet<Expression> exprsInOldContext) {
+    internal TriggersCollector(Dictionary<Expression, HashSet<OldExpr>> exprsInOldContext) {
       this.cache = new TriggerAnnotationsCache(exprsInOldContext);
     }
 
@@ -193,35 +193,45 @@ namespace Microsoft.Dafny.Triggers {
         return cached;
       }
 
-      expr.SubExpressions.Iter(e => Annotate(e));
+      TriggerAnnotation annotation = null; // TODO: Using ApplySuffix fixes the unresolved members problem in GenericSort
 
-      TriggerAnnotation annotation; // TODO: Using ApplySuffix fixes the unresolved members problem in GenericSort
-      if (IsPotentialTriggerCandidate(expr)) { 
-        annotation = AnnotatePotentialCandidate(expr);
-      } else if (expr is QuantifierExpr) {
-        annotation = AnnotateQuantifier((QuantifierExpr)expr);
-      } else if (expr is LetExpr) {
-        annotation = AnnotateLetExpr((LetExpr)expr);
-      } else if (expr is IdentifierExpr) {
-        annotation = AnnotateIdentifier((IdentifierExpr)expr);
-      } else if (expr is ApplySuffix) {
-        annotation = AnnotateApplySuffix((ApplySuffix)expr);
-      } else if (expr is MatchExpr) {
-        annotation = AnnotateMatchExpr((MatchExpr)expr);
-      } else if (expr is ComprehensionExpr) {
-        annotation = AnnotateComprehensionExpr((ComprehensionExpr)expr);
-      } else if (expr is ConcreteSyntaxExpression ||
-                 expr is LiteralExpr ||
-                 expr is OldExpr ||
-                 expr is ThisExpr ||
-                 expr is BoxingCastExpr ||
-                 expr is DatatypeValue ||
-                 expr is MultiSetFormingExpr) {
-        annotation = AnnotateOther(expr, false);
-      } else {
-        annotation = AnnotateOther(expr, true);
+      if (expr is LetExpr) {
+        var le = (LetExpr)expr;
+        if (le.LHSs.All(p => p.Var != null) && le.Exact) {
+          // Inline the let expression before doing trigger selection.
+          annotation = Annotate(Translator.InlineLet(le));
+        }
       }
+      
+      if (annotation == null) {
+        expr.SubExpressions.Iter(e => Annotate(e));
 
+        if (IsPotentialTriggerCandidate(expr)) {
+          annotation = AnnotatePotentialCandidate(expr);
+        } else if (expr is QuantifierExpr) {
+          annotation = AnnotateQuantifier((QuantifierExpr)expr);
+        } else if (expr is LetExpr) {
+          annotation = AnnotateLetExpr((LetExpr)expr);
+        } else if (expr is IdentifierExpr) {
+          annotation = AnnotateIdentifier((IdentifierExpr)expr);
+        } else if (expr is ApplySuffix) {
+          annotation = AnnotateApplySuffix((ApplySuffix)expr);
+        } else if (expr is MatchExpr) {
+          annotation = AnnotateMatchExpr((MatchExpr)expr);
+        } else if (expr is ComprehensionExpr) {
+          annotation = AnnotateComprehensionExpr((ComprehensionExpr)expr);
+        } else if (expr is ConcreteSyntaxExpression ||
+                   expr is LiteralExpr ||
+                   expr is OldExpr ||
+                   expr is ThisExpr ||
+                   expr is BoxingCastExpr ||
+                   expr is MultiSetFormingExpr) {
+          annotation = AnnotateOther(expr, false);
+        } else {
+          annotation = AnnotateOther(expr, true);
+        }
+      }
+    
       TriggerUtils.DebugTriggers("{0} ({1})\n{2}", Printer.ExprToString(expr), expr.GetType(), annotation);
       cache.annotations[expr] = annotation;
       return annotation;
@@ -235,10 +245,25 @@ namespace Microsoft.Dafny.Triggers {
           expr is OldExpr ||
           expr is ApplyExpr ||
           expr is DisplayExpression ||
-          TranslateToFunctionCall(expr) ||
-          (expr is UnaryOpExpr && (((UnaryOpExpr)expr).Op == UnaryOpExpr.Opcode.Cardinality)) || // FIXME || ((UnaryOpExpr)expr).Op == UnaryOpExpr.Opcode.Fresh doesn't work, as fresh is a pretty tricky predicate when it's not about datatypes. See translator.cs:10944
-          (expr is BinaryExpr && (((BinaryExpr)expr).Op == BinaryExpr.Opcode.NotIn || ((BinaryExpr)expr).Op == BinaryExpr.Opcode.In) && !(((BinaryExpr)expr).E1 is DisplayExpression))) {
+          expr is DatatypeValue ||
+          TranslateToFunctionCall(expr)) {
         return true;
+      } else if (expr is BinaryExpr) {
+        var e = (BinaryExpr)expr;
+        if ((e.Op == BinaryExpr.Opcode.NotIn || e.Op == BinaryExpr.Opcode.In) && !(e.E1 is DisplayExpression)) {
+          return true;
+        } else if (e.E0.Type.IsBigOrdinalType &&
+          (e.ResolvedOp == BinaryExpr.ResolvedOpcode.Lt || e.ResolvedOp == BinaryExpr.ResolvedOpcode.LessThanLimit || e.ResolvedOp == BinaryExpr.ResolvedOpcode.Gt)) {
+          return true;
+        } else {
+          return false;
+        }
+      } else if (expr is UnaryOpExpr) {
+        var e = (UnaryOpExpr)expr;
+        return e.Op == UnaryOpExpr.Opcode.Cardinality;  // FIXME || e.Op == UnaryOpExpr.Opcode.Fresh doesn't work, as fresh is a pretty tricky predicate when it's not about datatypes. See translator.cs:10944
+      } else if (expr is ConversionExpr) {
+        var e = (ConversionExpr)expr;
+        return e.ToType.IsBigOrdinalType;
       } else {
         return false;
       }
@@ -259,11 +284,17 @@ namespace Microsoft.Dafny.Triggers {
         case BinaryExpr.ResolvedOpcode.Gt:
         case BinaryExpr.ResolvedOpcode.Add:
         case BinaryExpr.ResolvedOpcode.Sub:
+          if (!isReal && !e.E0.Type.IsBitVectorType && !e.E0.Type.IsBigOrdinalType && DafnyOptions.O.DisableNLarith) {
+            return true;
+          }
+          break;
         case BinaryExpr.ResolvedOpcode.Mul:
         case BinaryExpr.ResolvedOpcode.Div:
         case BinaryExpr.ResolvedOpcode.Mod:
-          if (!isReal && !e.E0.Type.IsBitVectorType && DafnyOptions.O.DisableNLarith) {
-            return true;
+          if (!isReal && !e.E0.Type.IsBitVectorType && !e.E0.Type.IsBigOrdinalType) {
+            if (DafnyOptions.O.DisableNLarith || (DafnyOptions.O.ArithMode != 0 && DafnyOptions.O.ArithMode != 3)) {
+              return true;
+            }
           }
           break;
       }
@@ -271,16 +302,32 @@ namespace Microsoft.Dafny.Triggers {
     }
     private TriggerAnnotation AnnotatePotentialCandidate(Expression expr) {
       bool expr_is_killer = false;
-      var new_expr = TriggerUtils.MaybeWrapInOld(TriggerUtils.PrepareExprForInclusionInTrigger(expr, out expr_is_killer), cache.exprsInOldContext.Contains(expr));
-      var new_term = new TriggerTerm { Expr = new_expr, OriginalExpr = expr, Variables = CollectVariables(expr) };
-
-      List<TriggerTerm> collected_terms = CollectExportedCandidates(expr);
-      var children_contain_killers = CollectIsKiller(expr);
-
-      if (!children_contain_killers) {
-        // Add only if the children are not killers; the head has been cleaned up into non-killer form
-        collected_terms.Add(new_term);
+      HashSet<OldExpr> oldExprSet;
+      if (cache.exprsInOldContext.TryGetValue(expr, out oldExprSet)) {
+        // oldExpr has been set to the value found
+      } else {
+        oldExprSet = null;
       }
+      var new_exprs = TriggerUtils.MaybeWrapInOld(TriggerUtils.PrepareExprForInclusionInTrigger(expr, out expr_is_killer), oldExprSet);
+      // We expect there to be at least one "new_exprs".
+      // We also expect that the computation of new_term.Variables, collected_terms, and children_contain_killers will be the
+      // same for each of the "new_exprs".
+      // Therefore, we use the values of these variables from the last iteration in the expression that is ultimately returned.
+      TriggerTerm new_term = null;
+      List<TriggerTerm> collected_terms = null;
+      var children_contain_killers = false;
+      foreach (var new_expr in new_exprs) {
+        new_term = new TriggerTerm { Expr = new_expr, OriginalExpr = expr, Variables = CollectVariables(expr) };
+
+        collected_terms = CollectExportedCandidates(expr);
+        children_contain_killers = CollectIsKiller(expr);
+
+        if (!children_contain_killers) {
+          // Add only if the children are not killers; the head has been cleaned up into non-killer form
+          collected_terms.Add(new_term);
+        }
+      }
+      Contract.Assert(new_term != null);  // this checks our assumption that "new_exprs" contains at least one value.
 
       // This new node is a killer if its children were killers, or if it's non-cleaned-up head is a killer
       return new TriggerAnnotation(children_contain_killers || expr_is_killer, new_term.Variables, collected_terms);

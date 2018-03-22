@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
-    <Identity Id="e1baf989-88a6-4acf-8d97-e0dc243476aa" Version="1.8.0.10115" Language="en-US" Publisher="Microsoft Research" />
+    <Identity Id="e1baf989-88a6-4acf-8d97-e0dc243476aa" Version="2.1.0.10108" Language="en-US" Publisher="Microsoft Research and community" />
     <DisplayName>DafnyMenu</DisplayName>
     <Description xml:space="preserve">This is a menu for interacting with Dafny.</Description>
   </Metadata>
@@ -16,4 +16,7 @@
   <Assets>
     <Asset Type="Microsoft.VisualStudio.VsPackage" d:Source="Project" d:ProjectName="%CurrentProject%" Path="|%CurrentProject%;PkgdefProjectOutputGroup|" />
   </Assets>
+  <Prerequisites>
+    <Prerequisite Id="Microsoft.VisualStudio.Component.CoreEditor" Version="[15.0.26606.0,16.0)" DisplayName="Visual Studio core editor" />
+  </Prerequisites>
 </PackageManifest>

@@ -75,7 +75,7 @@ namespace Microsoft.Dafny.Triggers
         }
         foreach (var e in stream) {
           var tok = new NestedToken(quantifier.tok, e.tok);
-          yield return new ForallExpr(tok, ((ForallExpr)quantifier).TypeArgs, quantifier.BoundVars, quantifier.Range, e, TriggerUtils.CopyAttributes(quantifier.Attributes)) { Type = quantifier.Type };
+          yield return new ForallExpr(tok, ((ForallExpr)quantifier).TypeArgs, quantifier.BoundVars, quantifier.Range, e, TriggerUtils.CopyAttributes(quantifier.Attributes)) { Type = quantifier.Type, Bounds = quantifier.Bounds };
         }
       } else if (quantifier is ExistsExpr) {
         IEnumerable<Expression> stream;
@@ -86,7 +86,7 @@ namespace Microsoft.Dafny.Triggers
         }
         foreach (var e in stream) {
           var tok = new NestedToken(quantifier.tok, e.tok);
-          yield return new ExistsExpr(tok, ((ExistsExpr)quantifier).TypeArgs, quantifier.BoundVars, quantifier.Range, e, TriggerUtils.CopyAttributes(quantifier.Attributes)) { Type = quantifier.Type };
+          yield return new ExistsExpr(tok, ((ExistsExpr)quantifier).TypeArgs, quantifier.BoundVars, quantifier.Range, e, TriggerUtils.CopyAttributes(quantifier.Attributes)) { Type = quantifier.Type, Bounds = quantifier.Bounds };
         }
       } else {
         yield return quantifier;
@@ -132,17 +132,17 @@ namespace Microsoft.Dafny.Triggers
 
   class MatchingLoopRewriter
   {
-    TriggersCollector triggersCollector = new Triggers.TriggersCollector(new HashSet<Expression>());
+    TriggersCollector triggersCollector = new Triggers.TriggersCollector(new Dictionary<Expression, HashSet<OldExpr>>());
     Dictionary<Expression, IdentifierExpr> substMap;
     Dictionary<Expression, IdentifierExpr> usedMap;
 
     public QuantifierExpr RewriteMatchingLoops(QuantifierWithTriggers q)
     {
-      // rewrite quantifier to avoid mathing loops
+      // rewrite quantifier to avoid matching loops
       // before:
       //    assert forall i :: 0 <= i < a.Length-1 ==> a[i] <= a[i+1];
       // after: 
-      //    assert forall i,j :: j == i+1 ==> 0 <= i < a.Length-1 ==> a[i] <= a[i+1];
+      //    assert forall i,j :: j == i+1 ==> 0 <= i < a.Length-1 ==> a[i] <= a[j];
       substMap = new Dictionary<Expression, IdentifierExpr>();
       usedMap = new Dictionary<Expression, IdentifierExpr>();
       foreach (var m in q.LoopingMatches) {
@@ -167,6 +167,13 @@ namespace Microsoft.Dafny.Triggers
       if (substMap.Count > 0) {
         var s = new Translator.ExprSubstituter(substMap);
         expr = s.Substitute(q.quantifier) as QuantifierExpr;
+      } else {
+        // make a copy of the expr
+        if (expr is ForallExpr) {
+          expr = new ForallExpr(expr.tok, expr.TypeArgs, expr.BoundVars, expr.Range, expr.Term, TriggerUtils.CopyAttributes(expr.Attributes)) { Type = expr.Type, Bounds = expr.Bounds };
+        } else {
+          expr = new ExistsExpr(expr.tok, expr.TypeArgs, expr.BoundVars, expr.Range, expr.Term, TriggerUtils.CopyAttributes(expr.Attributes)) { Type = expr.Type, Bounds = expr.Bounds };
+        }
       }
       return expr;
     }

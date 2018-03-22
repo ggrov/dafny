@@ -50,6 +50,7 @@ namespace DafnyLanguage
   [Name("ProgressMarginGlyph")]
   [Order(After = "TokenTagger")]
   [ContentType("dafny")]
+  [ContentType("text")]
   [TagType(typeof(ProgressGlyphTag))]
   internal sealed class ProgressMarginGlyphFactoryProvider : IGlyphFactoryProvider
   {

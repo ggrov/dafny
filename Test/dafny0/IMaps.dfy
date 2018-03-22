@@ -71,8 +71,8 @@ lemma m7()
    assert forall i | i < 1 || i > 3 :: i !in a;
 }
 function Update<K, V>(a:imap<K, V>, k:K, v:V):imap<K, V>
-{
-    imap j | (j == k || j in a) :: (if j == k then v else a[j])
+{// imap j | (j == k || j in a) :: (if j == k then v else a[j])
+    imap j | j in iset{k} + a.Keys :: (if j == k then v else a[j])
 }
 method m8()
 {
@@ -117,12 +117,12 @@ method m13()
 class A { var x: int; }
 
 method m15(b: set<A>) 
-  requires forall a | a in b :: a != null;
 {
   ghost var m := imap a | a in b :: a.x;
   var aa := new A;
   assert aa !in m;
 }
+
 
 method minf()
 {

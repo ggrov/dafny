@@ -6,52 +6,52 @@
 class C { var u : int; }
 
 function nope1(c : C):()
-     requires c != null && allocated(c) && c.u > 0;
+     requires allocated(c) && c.u > 0;
 {()}
 
 function ok1(c : C):()
-     requires c != null && allocated(c) && c.u > 0;
+     requires allocated(c) && c.u > 0;
      reads c;
 {()}
 
-function nope2(c : C):()
+function nope2(c : C?):()
      requires c != null && allocated(c) && c.u > 0;
      reads if c != null then {} else {c};
 {()}
 
-function ok2(c : C):()
+function ok2(c : C?):()
      requires c != null && allocated(c) && c.u > 0;
      reads if c != null then {c} else {};
 {()}
 
-function nope3(xs : seq<C>):()
+function nope3(xs : seq<C?>):()
      requires |xs| > 0 && xs[0] != null && allocated(xs[0]) && xs[0].u > 0;
 {()}
 
-function ok3(xs : seq<C>):()
+function ok3(xs : seq<C?>):()
      requires |xs| > 0 && xs[0] != null && allocated(xs[0]) && xs[0].u > 0;
      reads xs;
 {()}
 
 function nope4(c : C, xs : set<C>):()
-     requires c != null && allocated(c) && c !in xs ==> c.u > 0;
+     requires allocated(c) && c !in xs ==> c.u > 0;
      reads xs;
 {()}
 
 function ok4(c : C, xs : set<C>):()
-     requires c != null && allocated(c) && c in xs ==> c.u > 0;
+     requires allocated(c) && c in xs ==> c.u > 0;
      reads xs;
 {()}
 
 // reads over itself
 
-class R { var r : R; }
+class R { var r : R? }
 
-function nope5(r : R):()
+function nope5(r : R?):()
   reads if r != null && allocated(r) then {r.r} else {};
 {()}
 
-function ok5(r : R):()
+function ok5(r : R?):()
   reads if r != null && allocated(r) then {r, r.r} else {};
 {()}
 
@@ -82,11 +82,11 @@ class CircularChecking {
   function H1(cell: Cell): int
     reads this, Repr
     requires cell in Repr
-    requires cell != null && allocated(cell) && cell.data == 10
+    requires allocated(cell) && cell.data == 10
 
   function H2(cell: Cell): int
     reads this, Repr
-    requires cell != null && allocated(cell) && cell.data == 10  // this is okay, too, since reads checks are postponed
+    requires allocated(cell) && cell.data == 10  // this is okay, too, since reads checks are postponed
     requires cell in Repr
 }
 
@@ -94,7 +94,7 @@ class Cell { var data: int }
 
 // Test the benefits of the new reads checking for function checking
 
-function ApplyToSet<X>(S: set<X>, f: X -> X): set<X>
+function ApplyToSet<X>(S: set<X>, f: X ~> X): set<X>
   requires forall x :: x in S ==> f.reads(x) == {} && f.requires(x)
 {
   if S == {} then {} else
@@ -102,28 +102,28 @@ function ApplyToSet<X>(S: set<X>, f: X -> X): set<X>
     ApplyToSet(S - {x}, f) + {f(x)}
 }
 
-function ApplyToSet_AltSignature0<X>(S: set<X>, f: X -> X): set<X>
+function ApplyToSet_AltSignature0<X>(S: set<X>, f: X ~> X): set<X>
   requires forall x :: x in S ==> f.requires(x) && f.reads(x) == {}
 
-function ApplyToSet_AltSignature1<X>(S: set<X>, f: X -> X): set<X>
+function ApplyToSet_AltSignature1<X>(S: set<X>, f: X ~> X): set<X>
   requires forall x :: x in S ==> f.reads(x) == {}
   requires forall x :: x in S ==> f.requires(x)
 
-function ApplyToSet_AltSignature2<X>(S: set<X>, f: X -> X): set<X>
+function ApplyToSet_AltSignature2<X>(S: set<X>, f: X ~> X): set<X>
   requires (forall x :: x in S ==> f.reads(x) == {}) ==> forall x :: x in S ==> f.requires(x)
   // (this precondition would not be good enough to check the body above)
 
 function FunctionInQuantifier0(): int
-  requires exists f: int -> int :: f(10) == 100  // error (x2): precondition violation and insufficient reads
+  requires exists f: int ~> int :: f(10) == 100  // error (x2): precondition violation and insufficient reads
 
 function FunctionInQuantifier1(): int
-  requires exists f: int -> int :: f.requires(10) && f(10) == 100  // error: insufficient reads
+  requires exists f: int ~> int :: f.requires(10) && f(10) == 100  // error: insufficient reads
 
 function FunctionInQuantifier2(): int
-  requires exists f: int -> int :: f.reads(10) == {} && f.requires(10) && f(10) == 100
+  requires exists f: int ~> int :: f.reads(10) == {} && f.requires(10) && f(10) == 100
   ensures FunctionInQuantifier2() == 100
 {
-  var f: int -> int :| f.reads(10) == {} && f.requires(10) && f(10) == 100;  // fine :) :)
+  var f: int ~> int :| f.reads(10) == {} && f.requires(10) && f(10) == 100;  // fine :) :)
   f(10)
 }
 

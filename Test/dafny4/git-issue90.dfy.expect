@@ -1,2 +1,2 @@
-git-issue90.dfy(5,6): Error: constant definition contains a cycle: _default.y -> MyInt -> _default.x
+git-issue90.dfy(6,8): Error: recursive constraint dependency involving a newtype: y -> MyInt -> x
 1 resolution/type errors detected in git-issue90.dfy

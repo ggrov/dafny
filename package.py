@@ -15,7 +15,10 @@ import zipfile
 # Configuration
 
 ## Where do we fetch the list of releases from?
-RELEASES_URL = "https://api.github.com/repos/Z3Prover/z3/releases/latest"
+## Get the latest release like this:
+## RELEASES_URL = "https://api.github.com/repos/Z3Prover/z3/releases/latest"
+## Get a specific release like this:
+RELEASES_URL = "https://api.github.com/repos/Z3Prover/z3/releases/tags/z3-4.5.0"
 ## How do we extract info from the name of a release file?
 RELEASE_REGEXP = re.compile(r"^(?P<directory>z3-[0-9\.]+-(?P<platform>x86|x64)-(?P<os>[a-z0-9\.\-]+)).zip$", re.IGNORECASE)
 
@@ -67,8 +70,8 @@ DESTINATION_DIRECTORY = path.join(ROOT_DIRECTORY, DESTINATION_DIRECTORY)
 CACHE_DIRECTORY = path.join(DESTINATION_DIRECTORY, "cache")
 
 MONO = sys.platform not in ("win32", "cygwin")
-DLL_PDB_EXT = ".dll.mdb" if MONO else ".pdb"
-EXE_PDB_EXT = ".exe.mdb" if MONO else ".pdb"
+DLL_PDB_EXT = ".pdb"
+EXE_PDB_EXT = ".pdb"
 ARCHIVE_FNAMES = ([dll + ".dll" for dll in DLLs] + [dll + DLL_PDB_EXT for dll in DLLs] +
                   [exe + ".exe" for exe in EXEs] + [exe + EXE_PDB_EXT for exe in EXEs] +
                   ETCs)
@@ -141,7 +144,9 @@ class Release:
                     fileinfo = zipfile.ZipInfo(fname, time.localtime(os.stat(fpath).st_mtime)[:6])
                     if any(fnmatch(fname, pattern) for pattern in UNIX_EXECUTABLES):
                         # http://stackoverflow.com/questions/434641/
-                        fileinfo.external_attr = 0o777 << 16
+                        fileinfo.external_attr = 0o100755 << 16
+                    if self.os != "win":
+                        fileinfo.create_system = 3  # lie about this zip file's source OS to preserve permissions
                     contents = open(fpath, mode='rb').read()
                     fileinfo.compress_type = zipfile.ZIP_DEFLATED
                     fileinfo.filename = Release.zipify_path(path.join(DAFNY_PACKAGE_PREFIX, fname))
@@ -183,12 +188,14 @@ def run(cmd):
 def build():
     os.chdir(ROOT_DIRECTORY)
     flush("  - Building")
-    builder = "xbuild" if MONO else "msbuild"
+    builder = "msbuild"
     try:
         run([builder, "Source/Dafny.sln", "/p:Configuration=Checked", "/p:Platform=Any CPU", "/t:Clean"])
         run([builder, "Source/Dafny.sln", "/p:Configuration=Checked", "/p:Platform=Any CPU", "/t:Rebuild"])
     except FileNotFoundError:
-        flush("Could not find '{}'! On Windows, you need to run this from the VS native tools command prompt.".format(builder))
+        flush("Could not find '{}'!".format(builder))
+        flush("On Windows, you need to run this from the VS native tools command prompt.")
+        flush("On Mac/Linux, you might need a more recent version of Mono.")
         sys.exit(1)
 
 def pack(releases):

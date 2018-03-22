@@ -1,4 +1,4 @@
-// RUN: %dafny /compile:3 /dprint:"%t.dprint" /autoTriggers:1 "%s" > "%t"
+// RUN: %dafny /compile:3 /dprint:"%t.dprint" "%s" > "%t"
 // RUN: %diff "%s.expect" "%t"
 
 // The flying robots examples from an F* tutorial.  It demonstrates how to specify
@@ -7,7 +7,6 @@
 class Cell {
   var val:int
   constructor (v:int)
-    modifies this
     ensures val == v
   {
     val := v;
@@ -21,7 +20,7 @@ class Point {
   predicate Valid()
     reads this, Repr
   {
-    this in Repr && null !in Repr &&
+    this in Repr &&
     {x,y,z} <= Repr &&
     x != y && y != z && z != x &&
     Value == (x.val, y.val, z.val)
@@ -30,15 +29,13 @@ class Point {
   var x:Cell, y:Cell, z:Cell
 
   constructor (a:int, b:int, c:int)
-    modifies this
     ensures Valid() && fresh(Repr - {this})
     ensures Value == (a, b, c)
   {
     x := new Cell(a);
     y := new Cell(b);
     z := new Cell(c);
-    Repr := {this};
-    Repr := Repr + {x, y, z};
+    Repr := {this, x, y, z};
     Value := (a, b, c);
   }
 
@@ -60,7 +57,7 @@ class Arm {
   predicate Valid()
     reads this, Repr
   {
-    this in Repr && null !in Repr &&
+    this in Repr &&
     {polar, azim} <= Repr &&
     polar != azim &&
     Value == (polar.val, azim.val)
@@ -70,14 +67,12 @@ class Arm {
   var azim:Cell
 
   constructor (polar_in:int, azim_in:int)
-    modifies this
     ensures Valid() && fresh(Repr - {this})
     ensures Value == (polar_in, azim_in)
   {
     polar := new Cell(polar_in);
     azim := new Cell(azim_in);
-    Repr := {this};
-    Repr := Repr + {polar, azim};
+    Repr := {this, polar, azim};
     Value := (polar_in, azim_in);
   }
 
@@ -96,9 +91,9 @@ class Bot {
   ghost var Repr: set<object>
   predicate {:opaque} Valid()
     reads this, Repr
-    ensures Valid() ==> this in Repr && null !in Repr
+    ensures Valid() ==> this in Repr
   {
-    this in Repr && null !in Repr &&
+    this in Repr &&
     pos in Repr && {left, right} <= Repr &&
     left != right &&
     pos.Repr <= Repr && left.Repr <= Repr && right.Repr <= Repr &&
@@ -111,14 +106,13 @@ class Bot {
   var right:Arm
 
   constructor ()
-    modifies this
     ensures Valid() && fresh(Repr - {this})
   {
     pos := new Point(0, 0, 0);
     left := new Arm(0, 0);
     right := new Arm(0, 0);
-    Repr := {this};
-    Repr := Repr + pos.Repr + left.Repr + right.Repr;
+    new;
+    Repr := {this} + pos.Repr + left.Repr + right.Repr;
     reveal Valid();
   }
 
@@ -161,8 +155,8 @@ class Bot {
 
 // This method tests that Fly operates independently on disjoint robots
 method FlyRobots(b0:Bot, b1:Bot)
-  requires b0 != null && b0.Valid()
-  requires b1 != null && b1.Valid()
+  requires b0.Valid()
+  requires b1.Valid()
   requires b0 != b1 ==> b0.Repr !! b1.Repr
   modifies b0.Repr, b1.Repr
   ensures b0.Valid() && fresh(b0.Repr - old(b0.Repr))
@@ -181,7 +175,7 @@ method FlyRobots(b0:Bot, b1:Bot)
 function ArmyRepr(bots:seq<Bot>) : set<object>
   reads set b | b in bots 
 {
-  set b,o | b in bots && b != null && o in b.Repr :: o
+  set b,o | b in bots && o in b.Repr :: o
 }
 
 // An army is a sequence of disjoint, valid robots
@@ -189,7 +183,7 @@ predicate ValidArmy(bots:seq<Bot>)
   reads set b | b in bots 
   reads ArmyRepr(bots)     
 {
-      (forall i :: 0 <= i < |bots| ==> bots[i] != null && bots[i].Valid())
+      (forall i :: 0 <= i < |bots| ==> bots[i].Valid())
   &&  (forall i,j :: 0 <= i < j < |bots| ==> bots[i].Repr !! bots[j].Repr)
 }
 
@@ -233,7 +227,7 @@ method FlyRobotArmy_Recursively(bots:seq<Bot>)
 // This method is intended to be called in each loop iteration of FlyRobotArmy
 method FlyOne(bots:seq<Bot>, n:int)
   requires 0 <= n < |bots|
-  requires forall j :: 0 <= j < |bots| ==> bots[j] != null && bots[j].Valid()
+  requires forall j :: 0 <= j < |bots| ==> bots[j].Valid()
   requires forall i,j :: 0 <= i < j < |bots| ==> bots[i].Repr !! bots[j].Repr
   requires forall j :: 0 <= j < n ==>  bots[j].robot_inv() && bots[j].flying()
   modifies bots[n].Repr
@@ -248,7 +242,6 @@ method FlyOne(bots:seq<Bot>, n:int)
 
 // This method makes sure FlyRobotArmy is callable and callable again
 method FormArmy(b0:Bot, b1:Bot, b2:Bot)
-  requires null !in {b0, b1, b2}
   requires b0.Valid() && b1.Valid() && b2.Valid()
   requires b0.Repr !! b1.Repr !! b2.Repr
   modifies b0.Repr, b1.Repr, b2.Repr
@@ -264,7 +257,7 @@ method FormArmy(b0:Bot, b1:Bot, b2:Bot)
 }
 
 lemma ArmyRepr3(army:seq<Bot>)
-  requires null !in army && |army| == 3
+  requires |army| == 3
   ensures ArmyRepr(army) == army[0].Repr + army[1].Repr + army[2].Repr
 {
 }

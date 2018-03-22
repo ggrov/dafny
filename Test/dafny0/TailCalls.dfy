@@ -76,7 +76,7 @@ method H2(q: int) returns (x: int)
   decreases 5;  // fine
 
 class {:autocontracts} MyAutoContractClass {
-  var left: MyAutoContractClass;
+  var left: MyAutoContractClass?
 
   predicate Valid() { true }
 
@@ -99,4 +99,15 @@ method {:tailrecursion} OtherTailCall(n: int) {
   if n < h*30 { } // this is a ghost statement as well
   if n < 230 { } // and this can be (and is) considered ghost as well
   if (*) { x := x + 1; }  // this, too
+}
+
+class TailConstructorRegressionTest
+{
+  var next: TailConstructorRegressionTest
+  constructor {:tailrecursion} (n: nat)
+  {
+    if n != 0 {
+      next := new TailConstructorRegressionTest(n-1);  // error: not a tail call, because it is followed by an assignment
+    }
+  }
 }

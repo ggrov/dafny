@@ -1,4 +1,4 @@
-// RUN: %dafny /compile:0 /print:"%t.print" /dprint:"%t.dprint" /autoTriggers:1 /printTooltips "%s" > "%t"
+// RUN: %dafny /compile:0 /print:"%t.print" /dprint:"%t.dprint" /printTooltips "%s" > "%t"
 // RUN: %diff "%s.expect" "%t"
 
 // This test checks that typical expressions requiring WF checks do not suddenly
@@ -24,5 +24,5 @@ class C { var x: int; }
 
 method M(s: set<C>)
   requires forall n: nat :: 0 <= f(n) && P(f(n))
-  requires forall c, c' | c in s && c' in s :: c != null && c'!= null && c.x == c'.x {
+  requires forall c, c' | c in s && c' in s :: c.x == c'.x {
 }

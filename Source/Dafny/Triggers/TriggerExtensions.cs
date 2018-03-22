@@ -44,18 +44,36 @@ namespace Microsoft.Dafny.Triggers {
   }
 
   internal static class ExprExtensions {
-    internal static IEnumerable<Expression> AllSubExpressions(this Expression expr, bool wrapOld, bool strict) {
-      bool isOld = expr is OldExpr;
+    internal static bool IsInlineable(this LetExpr expr) {
+      return expr.LHSs.All(p => p.Var != null) && expr.Exact;
+    }
+
+    internal static IEnumerable<Expression> AllSubExpressions(this Expression expr, bool wrapOld, bool strict, bool inlineLets = false) {
+      var isOld = expr is OldExpr ? new HashSet<OldExpr>() { expr as OldExpr } : null;
+
+      if (inlineLets && expr is LetExpr && ((LetExpr)expr).IsInlineable()) {
+        var le = (LetExpr)expr;
+        foreach (var subexpr in AllSubExpressions(Translator.InlineLet(le), wrapOld, strict, inlineLets)) {
+          yield return subexpr;
+        }
+        // If strict is false, then the recursive call will already yield a copy of (the inlined version) of expr, 
+        // so there's no need to yield expr itself below.
+        yield break;
+      }
 
       foreach (var subexpr in expr.SubExpressions) {
-        foreach (var r_subexpr in AllSubExpressions(subexpr, wrapOld, false)) {
-          yield return TriggerUtils.MaybeWrapInOld(r_subexpr, isOld);
+        foreach (var r_subexpr in AllSubExpressions(subexpr, wrapOld, false, inlineLets)) {
+          foreach (var e in TriggerUtils.MaybeWrapInOld(r_subexpr, isOld)) {
+            yield return e;
+          }
         }
       }
 
       if (expr is StmtExpr) {
-        foreach (var r_subexpr in AllSubExpressions(((StmtExpr)expr).S, wrapOld, false)) {
-          yield return TriggerUtils.MaybeWrapInOld(r_subexpr, isOld);
+        foreach (var r_subexpr in AllSubExpressions(((StmtExpr)expr).S, wrapOld, false, inlineLets)) {
+          foreach (var e in TriggerUtils.MaybeWrapInOld(r_subexpr, isOld)) {
+            yield return e;
+          }
         }
       }
 
@@ -64,15 +82,15 @@ namespace Microsoft.Dafny.Triggers {
       }
     }
 
-    internal static IEnumerable<Expression> AllSubExpressions(this Statement stmt, bool wrapOld, bool strict) {
+    internal static IEnumerable<Expression> AllSubExpressions(this Statement stmt, bool wrapOld, bool strict, bool inlineLets = false) {
       foreach (var subexpr in stmt.SubExpressions) {
-        foreach (var r_subexpr in AllSubExpressions(subexpr, wrapOld, false)) {
+        foreach (var r_subexpr in AllSubExpressions(subexpr, wrapOld, false, inlineLets)) {
           yield return r_subexpr;
         }
       }
 
       foreach (var substmt in stmt.SubStatements) {
-        foreach (var r_subexpr in AllSubExpressions(substmt, wrapOld, false)) {
+        foreach (var r_subexpr in AllSubExpressions(substmt, wrapOld, false, inlineLets)) {
           yield return r_subexpr;
         }
       }
@@ -134,7 +152,7 @@ namespace Microsoft.Dafny.Triggers {
     }
 
     internal static IEnumerable<TriggerMatch> SubexpressionsMatchingTrigger(this ComprehensionExpr quantifier, Expression trigger) {
-      return quantifier.AllSubExpressions(true, true)
+      return quantifier.AllSubExpressions(true, true, true)
         .Select(e => TriggerUtils.PrepareExprForInclusionInTrigger(e).MatchAgainst(trigger, quantifier.BoundVars, e))
         .Where(e => e.HasValue).Select(e => e.Value);
     }
@@ -412,7 +430,11 @@ namespace Microsoft.Dafny.Triggers {
     private static bool ShallowEq(MemberSelectExpr expr1, MemberSelectExpr expr2) {
       return expr1.MemberName == expr2.MemberName &&
              expr1.Member == expr2.Member &&
-             TriggerUtils.SameLists(expr1.TypeApplication, expr2.TypeApplication, Microsoft.Dafny.Type.Equals);
+             TriggerUtils.SameLists(expr1.TypeApplication, expr2.TypeApplication, TypeEq);
+    }
+
+    internal static bool TypeEq(Type type1, Type type2) {
+      return type1.Equals(type2);
     }
 
     private static bool ShallowEq(SeqDisplayExpr expr1, SeqDisplayExpr expr2) {
@@ -477,7 +499,7 @@ namespace Microsoft.Dafny.Triggers {
         // Implied by Ctor equality: expr1.MemberName == expr2.MemberName &&
              expr1.Ctor == expr2.Ctor &&
         // Contextual information: expr1.IsCoCall == expr2.IsCoCall &&
-             TriggerUtils.SameLists(expr1.InferredTypeArgs, expr2.InferredTypeArgs, Microsoft.Dafny.Type.Equals);
+             TriggerUtils.SameLists(expr1.InferredTypeArgs, expr2.InferredTypeArgs, TypeEq);
     }
 
     private static bool ShallowEq(StringLiteralExpr expr1, StringLiteralExpr expr2) {

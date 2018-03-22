@@ -1,4 +1,4 @@
-// RUN: %dafny /compile:0 /print:"%t.print" /dprint:"%t.dprint" /autoTriggers:1 /printTooltips "%s" > "%t"
+// RUN: %dafny /compile:0 /print:"%t.print" /dprint:"%t.dprint" /printTooltips "%s" > "%t"
 // RUN: %diff "%s.expect" "%t"
 
 // This test shows that the loop detection engine makes compromises when looking
@@ -35,6 +35,7 @@ method Test(z: int) {
   // Sanity check:
   assert forall x :: true || Q(x) || Q(if z > 1 then x else 3 * z + 1);
 
-  // WISH: It might also be good to zeta-reduce before loop detection.
+  // Let expressions are inlined before loop detection, causing this to get
+  // correctly rewritten.
   assert forall x :: true || Q(x) || (var xx := x+1; Q(xx));
 }

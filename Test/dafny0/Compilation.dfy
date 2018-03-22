@@ -178,7 +178,6 @@ method DigitsIdents(t: Tuple<int, Tuple<int, bool>>)
 class DigitsClass {
   var 7: bool;
   method M(c: DigitsClass)
-    requires c != null;
   {
     var x: int := if this.7 then 7 else if c.7 then 8 else 9;
   }
@@ -278,7 +277,7 @@ module EqualityTests {
   method TestMain()
   {
     // regression tests:
-    var a: C<int>, b: C<int> := null, null;
+    var a: C?<int>, b: C?<int> := null, null;
     if a == null {
       print "a is null\n";
     }
@@ -296,7 +295,7 @@ module EqualityTests {
     ArrayTests(H);
   }
 
-  method ArrayTests<T>(H: array<T>)
+  method ArrayTests<T>(H: array?<T>)
   {
     var G := new int[10];
     if G == H {  // this comparison is allowed in Dafny, but requires a cast in C#
@@ -321,4 +320,62 @@ method N()
 {
   var z: nat :| true;
   assert 0 <= z;
+}
+
+// -------------------------------------------------
+
+class DigitUnderscore_Names_Functions_and_Methods {
+  function 70(): int { 80 }
+  lemma 120()
+    ensures this.70() == 80
+  {
+  }
+  
+  const 90 := () => 92
+  method 567(y: int) {
+    var m := this.90;
+    var k := this.90();
+    assert k == 92;
+    if 0 < y {
+      ghost var g := this.70();
+      this.567(y-1);
+      assert g == 80;
+    }
+  }
+
+  constructor 20_0(x: int)
+  {
+    var u := this.88;
+    assert u == DigitUnderscore_Names_Functions_and_Methods.88;
+  }
+
+  static const 88: bool
+
+  method 498() {
+    var p := new DigitUnderscore_Names_Functions_and_Methods.20_0(200);
+    p.567(100);
+  }
+
+  inductive predicate 500(y: int)
+  {
+    y == 0 || this.500(y-1)
+  }
+
+  inductive lemma 5_0_0(y: int)
+    requires this.500(y)
+    ensures 0 <= y
+  {
+  }
+  lemma Another(k: ORDINAL, y: int)
+    requires this.500#[k](y)
+    ensures 0 <= y
+  {
+    this.5_0_0#[k](y);
+  }
+
+  const x' := 3.0  // the prime in the name previously compiled incorrectly
+  method Regression(u: real) returns (v: real)
+  {
+    v := u * x';
+  }
 }

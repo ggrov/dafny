@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -117,11 +117,20 @@
     <Reference Include="BoogieExecutionEngine">
       <HintPath>..\..\..\boogie\Binaries\BoogieExecutionEngine.dll</HintPath>
     </Reference>
+    <Reference Include="BoogieGraph">
+		<HintPath>..\..\..\boogie\Binaries\BoogieGraph.dll</HintPath>
+	</Reference>
     <Reference Include="BoogieParserHelper">
       <HintPath>..\..\..\boogie\Binaries\BoogieParserHelper.dll</HintPath>
     </Reference>
     <Reference Include="Provers.SMTLib">
       <HintPath>..\..\..\boogie\Binaries\Provers.SMTLib.dll</HintPath>
+    </Reference>
+    <Reference Include="BoogieModelViewer">
+      <HintPath>..\..\..\boogie\Binaries\BoogieModelViewer.dll</HintPath>
+    </Reference>
+    <Reference Include="BoogieModel">
+      <HintPath>..\..\..\boogie\Binaries\BoogieModel.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -131,11 +140,15 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CounterExampleProvider.cs" />
     <Compile Include="DafnyHelper.cs" />
+    <Compile Include="SymbolTable.cs" />
     <Compile Include="Utilities.cs" />
     <Compile Include="VerificationTask.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Server.cs" />
+    <Compile Include="VersionCheck.cs" />
+    <Compile Include="..\version.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
@@ -154,4 +167,8 @@
   <Target Name="AfterBuild">
   </Target>
   -->
+  <PropertyGroup>
+    <CodeContractsInstallDir Condition="'$(CodeContractsInstallDir)'==''">C:\Program Files (x86)\Microsoft\Contracts\</CodeContractsInstallDir>
+  </PropertyGroup>
+  <Import Condition="'$(CodeContractsImported)' != 'true' AND '$(DontImportCodeContracts)' != 'true' AND Exists($(CodeContractsInstallDir))" Project="$(CodeContractsInstallDir)MsBuild\v14.0\Microsoft.CodeContracts.targets" />
 </Project>
