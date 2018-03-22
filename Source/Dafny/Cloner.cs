@@ -794,14 +794,10 @@ namespace Microsoft.Dafny
       } else if (m is TwoStateLemma) {
         var two = (TwoStateLemma)m;
         return new TwoStateLemma(Tok(m.tok), m.Name, m.HasStaticKeyword, tps, ins, m.Outs.ConvertAll(CloneFormal),
-<<<<<<< HEAD
-          req, mod, ens, decreases, body, CloneAttributes(m.Attributes), null, m);
+          req, mod, ens, decreases, body, CloneAttributes(m.Attributes), null);
       } else if (m is Tactic) {
         return new Tactic(Tok(m.tok), m.Name, m.HasStaticKeyword, tps, ins, m.Outs.ConvertAll(CloneFormal),
             req, mod, ens, decreases, body, CloneAttributes(m.Attributes), null);
-=======
-          req, mod, ens, decreases, body, CloneAttributes(m.Attributes), null);
->>>>>>> f229715374671a1b63805f528916503ad4a7eca4
       } else {
         return new Method(Tok(m.tok), m.Name, m.HasStaticKeyword, m.IsGhost, tps, ins, m.Outs.ConvertAll(CloneFormal),
           req, mod, ens, decreases, body, CloneAttributes(m.Attributes), null);
