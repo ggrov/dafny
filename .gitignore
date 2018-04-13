@@ -5,6 +5,9 @@
 *.userprefs
 *.vsix
 *.vsixmanifest
+.vs
+UpgradeLog.htm
+*.csproj.user
 *~
 
 Binaries/*.dll
@@ -16,6 +19,8 @@ Binaries/Dafny.exe
 Binaries/Dafny.vshost.exe
 Binaries/DafnyServer.exe
 Binaries/export/
+Binaries/Boogie.exe
+Binaries/CodeContracts
 
 Package/
 
