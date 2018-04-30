@@ -7,6 +7,7 @@ using System.Text;
 using Microsoft.Boogie;
 using DafnyServer;
 using Bpl = Microsoft.Boogie;
+using Dare;
 
 namespace Microsoft.Dafny {
   // FIXME: This should not be duplicated here
@@ -27,20 +28,107 @@ namespace Microsoft.Dafny {
     }
   }
 
+  class TacticsConsolePrinter {
+    private readonly List<ErrorInformation> tacticErrors;
+
+    public TacticsConsolePrinter() {
+      this.tacticErrors = new List<ErrorInformation>();
+    }
+
+    public void ReporterDelegate(ErrorInformation errInfo) {
+      this.tacticErrors.Add(errInfo);
+    }
+
+    public void ReportAll() {
+      if(tacticErrors.Count == 0) {
+        Console.WriteLine("TACTICS_START [] TACTICS_END");
+      } else {
+        Console.WriteLine("TACTICS_START " + ConvertToJson(this.tacticErrors) + " TACTICS_END");
+      }
+    }
+
+    private static string ConvertToJson<T>(T data) {
+      var serializer = new DataContractJsonSerializer(typeof(T));
+      using (var ms = new MemoryStream())
+      {
+        serializer.WriteObject(ms, data);
+        return Encoding.Default.GetString(ms.ToArray());
+      }
+    }
+  }
+
   class DafnyHelper {
     private string fname;
     private string source;
     private string[] args;
-
+    
+    private Resolver resolver;
+    private readonly TacticsConsolePrinter tacticsReporter;
     private readonly Dafny.ErrorReporter reporter;
     private Dafny.Program dafnyProgram;
     private IEnumerable<Tuple<string, Bpl.Program>> boogiePrograms;
+
+    public static bool TacticVerificationEnabled {
+      get {
+        return Microsoft.Dafny.Tacny.TacnyDriver.IfEvalTac;
+      }
+      set {
+        Microsoft.Dafny.Tacny.TacnyDriver.IfEvalTac = value;
+        Console.WriteLine("tacticVerificationEnabled=" + (value ? "T" : "F"));
+      }
+    }
+
+    public bool Expand() {
+      var line = Int32.Parse(this.args[0]);
+      var col = Int32.Parse(this.args[1]);
+      var l = Microsoft.Dafny.Tacny.TacnyDriver.GetTacticResultList();
+      var result = l.FirstOrDefault(pair => (pair.Key.line==line && pair.Key.col==col));
+      if (result.Value == null) {
+        Console.WriteLine("EXPANDED_TACTIC NO_TACTIC EXPANDED_TACTIC_END");
+        return false;
+      }
+      var sr = new StringWriter();
+      var printer = new Printer(sr);
+      foreach (var stmt in result.Value) {
+        printer.PrintStatement(stmt, 4);
+        sr.Write("\n");
+      }
+      string expanded = sr.ToString();
+      if(string.IsNullOrEmpty(expanded)) {
+        Console.WriteLine("EXPANDED_TACTIC NO_TACTIC EXPANDED_TACTIC_END");
+        return false;
+      }
+      Console.WriteLine("EXPANDED_TACTIC "+expanded+" EXPANDED_TACTIC_END");
+      return true;
+    }
+
+    public void CheckForDeadAnnotations() {
+      if (Parse() && Resolve()) {
+        var stopper = new Dare.StopChecker();
+        var dare = new Dare.Dare(stopper);
+        var results = dare.ProcessProgram(dafnyProgram);
+        if(results.Count == 0) {
+          Console.WriteLine("DEAD_ANNOTATIONS [] DEAD_ANNOTATIONS_END");
+        } else {
+          var output = "DEAD_ANNOTATIONS [";
+          for(var i = 0; i < results.Count - 1; i++) {
+            output += results[i].asJson() + ",";
+          }
+          output += results[results.Count-1].asJson() + "] DEAD_ANNOTATIONS_END";
+          Console.WriteLine(output);
+        }
+      } else {
+        Console.WriteLine("DEAD_ANNOTATIONS [] DEAD_ANNOTATIONS_END");
+      };
+    }
 
     public DafnyHelper(string[] args, string fname, string source) {
       this.args = args;
       this.fname = fname;
       this.source = source;
       this.reporter = new Dafny.ConsoleErrorReporter();
+      this.tacticsReporter = new TacticsConsolePrinter();
+      Console.WriteLine("tacticVerificationEnabled=" + (DafnyHelper.TacticVerificationEnabled ? "T" : "F"));
     }
 
     public bool Verify() {
@@ -60,14 +148,16 @@ namespace Microsoft.Dafny {
     }
 
     private bool Resolve() {
-      var resolver = new Dafny.Resolver(dafnyProgram);
+      resolver = new Dafny.Resolver(dafnyProgram);
       resolver.ResolveProgram(dafnyProgram);
       return reporter.Count(ErrorLevel.Error) == 0;
     }
 
     private bool Translate() {
-      boogiePrograms = Translator.Translate(dafnyProgram,reporter,null,
-          new Translator.TranslatorFlags() { InsertChecksums = true, UniqueIdPrefix = fname }); // FIXME how are translation errors reported?
+      boogiePrograms = Translator.Translate(dafnyProgram,reporter, resolver,
+          new Translator.TranslatorFlags() { InsertChecksums = true, UniqueIdPrefix = fname },
+          tacticsReporter.ReporterDelegate); // FIXME how are translation errors reported?
+      tacticsReporter.ReportAll();
       return true;
     }
 

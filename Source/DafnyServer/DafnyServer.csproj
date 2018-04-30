@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -118,8 +118,8 @@
       <HintPath>..\..\..\boogie\Binaries\BoogieExecutionEngine.dll</HintPath>
     </Reference>
     <Reference Include="BoogieGraph">
-		<HintPath>..\..\..\boogie\Binaries\BoogieGraph.dll</HintPath>
-	</Reference>
+      <HintPath>..\..\..\boogie\Binaries\BoogieGraph.dll</HintPath>
+    </Reference>
     <Reference Include="BoogieParserHelper">
       <HintPath>..\..\..\boogie\Binaries\BoogieParserHelper.dll</HintPath>
     </Reference>
@@ -157,6 +157,10 @@
     <ProjectReference Include="..\Dafny\DafnyPipeline.csproj">
       <Project>{fe44674a-1633-4917-99f4-57635e6fa740}</Project>
       <Name>DafnyPipeline</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\Dare\Dare.csproj">
+      <Project>{14699ce1-bd29-494e-b4fc-3c740c82742c}</Project>
+      <Name>Dare</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

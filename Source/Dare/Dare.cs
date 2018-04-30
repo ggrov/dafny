@@ -552,7 +552,41 @@ namespace Dare {
       Replace = replace;
     }
 
+    private string PrintedReplacement() {
+      if (this.Replace == null) return "";
+      var indent = 0;
+      var sr = new StringWriter();
+      var pr = new Printer(sr);
+      if (this.Replace is Statement) {
+        var stmt = (Statement)this.Replace;
+        pr.PrintStatement(stmt, indent);
+      } else if (this.Replace is MaybeFreeExpression) {
+        var mfe = (MaybeFreeExpression)this.Replace;
+        switch (this.TypeOfRemovable) {
+          case "Invariant":
+            sr.Write("invariant ");
+            break;
+          case "Decreases Expression":
+            sr.Write("decreases ");
+            break;
+          default:
+            throw new Tcce.UnreachableException();
+        }
+        pr.PrintExpression(mfe.E, mfe.IsFree);
+      }
+      return sr.ToString();
+    }
 
+    public string asJson() {
+      // Convert to base64 to avoid isues with quotes
+      var plainTextBytes = System.Text.Encoding.UTF8.GetBytes(PrintedReplacement());
+      var replacementText = System.Convert.ToBase64String(plainTextBytes);
+      return "{\"pos\":"+ this.StartTok.pos+ "," +
+        "\"col\":"+ this.StartTok.col+ "," +
+        "\"line\":"+ this.StartTok.line+ "," +
+        "\"Length\":"+this.Length+"," +
+        "\"Replacement64\":\""+ replacementText + "\"}";
+    }
   }
 
   /// <summary>

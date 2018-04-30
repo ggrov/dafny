@@ -33,6 +33,7 @@ namespace Microsoft.Dafny {
     public Server() {
       this.running = true;
       ExecutionEngine.printer = new DafnyConsolePrinter();
+      DafnyHelper.TacticVerificationEnabled = true;
       SetupConsole();
     }
 
@@ -83,6 +84,18 @@ namespace Microsoft.Dafny {
           ServerUtils.checkArgs(command, 0);
           var payload = ReadPayload();
           VerificationTask.ReadTask(payload).Symbols();
+        } else if (verb == "tacticsToggle") {
+          ServerUtils.checkArgs(command, 0);
+          ReadPayload();
+          DafnyHelper.TacticVerificationEnabled = !DafnyHelper.TacticVerificationEnabled;
+        } else if (verb == "tacticsExpand") {
+          ServerUtils.checkArgs(command, 0);
+          var payload = ReadPayload();
+          VerificationTask.ReadTask(payload).Expand();
+        } else if (verb == "deadAnnotationCheck") {
+          ServerUtils.checkArgs(command, 0);
+          var payload = ReadPayload();
+          VerificationTask.ReadTask(payload).CheckForDeadAnnotations();
         } else if (verb == "version") {
           ServerUtils.checkArgs(command, 0);
           ReadPayload();
