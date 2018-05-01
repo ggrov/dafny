@@ -78,28 +78,28 @@ namespace Microsoft.Dafny {
       }
     }
 
-    public bool Expand() {
-      var line = Int32.Parse(this.args[0]);
-      var col = Int32.Parse(this.args[1]);
-      var l = Microsoft.Dafny.Tacny.TacnyDriver.GetTacticResultList();
-      var result = l.FirstOrDefault(pair => (pair.Key.line==line && pair.Key.col==col));
-      if (result.Value == null) {
-        Console.WriteLine("EXPANDED_TACTIC NO_TACTIC EXPANDED_TACTIC_END");
-        return false;
+    public void Expand() {
+      if (Parse() && Resolve()) {
+        var position = Int32.Parse(this.args[0]);
+        var tr = new Microsoft.Dafny.Tacny.TacticReplacer(this.dafnyProgram, position);
+        var trStatus = tr.ExpandSingleTacticCall(position, out string expandedTactic);
+        switch (trStatus) {
+          case Tacny.TacticReplaceStatus.Success:
+            Console.WriteLine("EXPANDED_TACTIC " + expandedTactic + " EXPANDED_TACTIC_END");
+            break;
+          case Tacny.TacticReplaceStatus.NoTactic:
+            Console.WriteLine("EXPANDED_TACTIC NO_TACTIC EXPANDED_TACTIC_END");
+            break;
+          case Tacny.TacticReplaceStatus.TranslatorFail:
+            Console.WriteLine("EXPANDED_TACTIC TRANSLATOR_FAIL EXPANDED_TACTIC_END");
+            break;
+          case Tacny.TacticReplaceStatus.NotResolved:
+            Console.WriteLine("EXPANDED_TACTIC UNRESOLVED EXPANDED_TACTIC_END");
+            break;
+        }
+      } else {
+        Console.WriteLine("EXPANDED_TACTIC UNRESOLVED EXPANDED_TACTIC_END");
       }
-      var sr = new StringWriter();
-      var printer = new Printer(sr);
-      foreach (var stmt in result.Value) {
-        printer.PrintStatement(stmt, 4);
-        sr.Write("\n");
-      }
-      string expanded = sr.ToString();
-      if(string.IsNullOrEmpty(expanded)) {
-        Console.WriteLine("EXPANDED_TACTIC NO_TACTIC EXPANDED_TACTIC_END");
-        return false;
-      }
-      Console.WriteLine("EXPANDED_TACTIC "+expanded+" EXPANDED_TACTIC_END");
-      return true;
     }
 
     public void CheckForDeadAnnotations() {

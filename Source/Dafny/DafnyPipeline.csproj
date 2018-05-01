@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -201,6 +201,7 @@
     <Compile Include="Tacny\Language\OrChoiceStmt.cs" />
     <Compile Include="Tacny\ProofState.cs" />
     <Compile Include="Tacny\TacnyInterpreter.cs" />
+    <Compile Include="Tacny\TacticReplacer.cs" />
     <Compile Include="Tacny\tcce.cs" />
     <Compile Include="Tacny\TokenGenerator.cs" />
     <Compile Include="Tacny\TokenTracer.cs" />
@@ -232,8 +233,8 @@
     <None Include="Dafny.atg" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Parser.cs"/>
-    <Compile Include="Scanner.cs"/>
+    <Compile Include="Parser.cs" />
+    <Compile Include="Scanner.cs" />
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include="Microsoft.Net.Client.3.5">
