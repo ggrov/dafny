@@ -147,9 +147,11 @@ namespace Microsoft.Dafny.Tacny {
       return isMore;
     }
     
-    public TacticReplaceStatus ExpandSingleTacticCall(int tacticCallPos, out string expanded) {
+    public TacticReplaceStatus ExpandSingleTacticCall(int tacticCallPos, out string expanded, out int start, out int end) {
       expanded = "";
       var status = RefactoringUtil.GetTacticCallAtPosition(_member as Method, tacticCallPos, out Tuple<Statement, int, int> us);
+      start = us.Item2;
+      end = us.Item3;
       return status == TacticReplaceStatus.Success ? ExpandSingleTacticCall(us.Item1, out expanded) : status;
     }
 

@@ -82,23 +82,30 @@ namespace Microsoft.Dafny {
       if (Parse() && Resolve()) {
         var position = Int32.Parse(this.args[0]);
         var tr = new Microsoft.Dafny.Tacny.TacticReplacer(this.dafnyProgram, position);
-        var trStatus = tr.ExpandSingleTacticCall(position, out string expandedTactic);
+        var trStatus = tr.ExpandSingleTacticCall(position, out string expandedTactic, out int start, out int end);
+        var plainTextBytes = System.Text.Encoding.UTF8.GetBytes(expandedTactic);
+        var replacementText = System.Convert.ToBase64String(plainTextBytes);
         switch (trStatus) {
           case Tacny.TacticReplaceStatus.Success:
-            Console.WriteLine("EXPANDED_TACTIC " + expandedTactic + " EXPANDED_TACTIC_END");
+            Console.WriteLine("EXPANDED_TACTIC {" +
+              "\"status\": \"SUCCESS\","+
+              "\"expansion64\":\"" + replacementText + "\"," +
+              "\"startPos\":" + start +"," +
+              "\"endPos\":" + end +
+              "} EXPANDED_TACTIC_END");
             break;
           case Tacny.TacticReplaceStatus.NoTactic:
-            Console.WriteLine("EXPANDED_TACTIC NO_TACTIC EXPANDED_TACTIC_END");
+            Console.WriteLine("EXPANDED_TACTIC {\"status\": \"NO_TACTIC\"} EXPANDED_TACTIC_END");
             break;
           case Tacny.TacticReplaceStatus.TranslatorFail:
-            Console.WriteLine("EXPANDED_TACTIC TRANSLATOR_FAIL EXPANDED_TACTIC_END");
+            Console.WriteLine("EXPANDED_TACTIC {\"status\": \"TRANSLATOR_FAIL\"} EXPANDED_TACTIC_END");
             break;
           case Tacny.TacticReplaceStatus.NotResolved:
-            Console.WriteLine("EXPANDED_TACTIC UNRESOLVED EXPANDED_TACTIC_END");
+            Console.WriteLine("EXPANDED_TACTIC {\"status\": \"UNRESOLVED\"} EXPANDED_TACTIC_END");
             break;
         }
       } else {
-        Console.WriteLine("EXPANDED_TACTIC UNRESOLVED EXPANDED_TACTIC_END");
+        Console.WriteLine("EXPANDED_TACTIC {\"status\": \"UNRESOLVED\"} EXPANDED_TACTIC_END");
       }
     }
 
