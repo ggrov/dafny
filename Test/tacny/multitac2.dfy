@@ -15,10 +15,9 @@ lemma ltest(d : Dummy, e: Dummy)
 {
    tac(d);
    tac(e);
-
 }
 
-tactic tac(b: Element)
+tactic tac(b: term)
 {
     tvar vs := tactic.vars + tactic.input;
     tvar ls := tactic.lemmas;	

@@ -5,7 +5,7 @@ datatype Dummy2 = A2 | B2
 lemma dummyLemma(m: Dummy)
 ensures false
 {
-	assume false;
+  assume false;
 }
 
 lemma ltest(d : Dummy)
@@ -17,17 +17,16 @@ lemma ltest(d : Dummy)
 lemma ltest2(d : Dummy)
  ensures false
 {
-
-tac(d);
+  tac(d);
 }
 
 tactic tac(b: term)
 {
-	assert true;
-	dummyTac(b);
+  assert true;
+  dummyTac(b);
 }
 
 tactic dummyTac (c: term)
 {
-	assume false;
+  assume false;
 }
