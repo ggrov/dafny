@@ -151,6 +151,7 @@ namespace Microsoft.Dafny {
       if (success) {
         dafnyProgram = new Dafny.Program(fname, module, builtIns, reporter);
       }
+      dafnyProgram.Raw = source;
       return success;
     }
 
