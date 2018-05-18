@@ -63,9 +63,13 @@ namespace Microsoft.Dafny {
     public void DotGraph() {
       new DafnyHelper(args, filename, ProgramSource).DotGraph();
     }
-
+    
     internal void Expand() {
       new DafnyHelper(args, filename, ProgramSource).Expand();
+    }
+
+    internal void ExpandAll() {
+      new DafnyHelper(args, filename, ProgramSource).ExpandAll();
     }
 
     internal void CheckForDeadAnnotations() {

@@ -78,34 +78,33 @@ namespace Microsoft.Dafny {
       }
     }
 
+    private static string UnresolvedResponse() {
+      var unresolvedError = new Microsoft.Dafny.Tacny.TacticExpansion(
+        Microsoft.Dafny.Tacny.TacticExpandStatus.NotResolved
+      );
+      return ConvertToJson(unresolvedError);
+    }
+
+    public void ExpandAll() {
+      if (Parse() && Resolve()) {
+        var replacements = Microsoft.Dafny.Tacny.TacticExpander.ExpandAll(this.dafnyProgram);
+        Console.WriteLine("EXPANDED_TACTIC " +
+          ConvertToJson(replacements) +
+          " EXPANDED_TACTIC_END");
+      } else {
+        Console.WriteLine("EXPANDED_TACTIC " + UnresolvedResponse() + " EXPANDED_TACTIC_END");
+      }
+    }
+
     public void Expand() {
       if (Parse() && Resolve()) {
         var position = Int32.Parse(this.args[0]);
-        var tr = new Microsoft.Dafny.Tacny.TacticReplacer(this.dafnyProgram, position);
-        var trStatus = tr.ExpandSingleTacticCall(position, out string expandedTactic, out int start, out int end);
-        var plainTextBytes = System.Text.Encoding.UTF8.GetBytes(expandedTactic);
-        var replacementText = System.Convert.ToBase64String(plainTextBytes);
-        switch (trStatus) {
-          case Tacny.TacticReplaceStatus.Success:
-            Console.WriteLine("EXPANDED_TACTIC {" +
-              "\"status\": \"SUCCESS\","+
-              "\"expansion64\":\"" + replacementText + "\"," +
-              "\"startPos\":" + start +"," +
-              "\"endPos\":" + end +
-              "} EXPANDED_TACTIC_END");
-            break;
-          case Tacny.TacticReplaceStatus.NoTactic:
-            Console.WriteLine("EXPANDED_TACTIC {\"status\": \"NO_TACTIC\"} EXPANDED_TACTIC_END");
-            break;
-          case Tacny.TacticReplaceStatus.TranslatorFail:
-            Console.WriteLine("EXPANDED_TACTIC {\"status\": \"TRANSLATOR_FAIL\"} EXPANDED_TACTIC_END");
-            break;
-          case Tacny.TacticReplaceStatus.NotResolved:
-            Console.WriteLine("EXPANDED_TACTIC {\"status\": \"UNRESOLVED\"} EXPANDED_TACTIC_END");
-            break;
-        }
+        var replacement = Microsoft.Dafny.Tacny.TacticExpander.Expand(this.dafnyProgram, position);
+        Console.WriteLine("EXPANDED_TACTIC " +
+          ConvertToJson(replacement) +
+          " EXPANDED_TACTIC_END");
       } else {
-        Console.WriteLine("EXPANDED_TACTIC {\"status\": \"UNRESOLVED\"} EXPANDED_TACTIC_END");
+        Console.WriteLine("EXPANDED_TACTIC " + UnresolvedResponse() + " EXPANDED_TACTIC_END");
       }
     }
 
@@ -149,9 +148,10 @@ namespace Microsoft.Dafny {
       var success = (Dafny.Parser.Parse(source, fname, fname, null, module, builtIns, new Dafny.Errors(reporter)) == 0 &&
                      Dafny.Main.ParseIncludes(module, builtIns, new List<string>(), new Dafny.Errors(reporter)) == null);
       if (success) {
-        dafnyProgram = new Dafny.Program(fname, module, builtIns, reporter);
+        dafnyProgram = new Dafny.Program(fname, module, builtIns, reporter) {
+          Raw = source
+        };
       }
-      dafnyProgram.Raw = source;
       return success;
     }
 

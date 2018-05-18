@@ -92,6 +92,10 @@ namespace Microsoft.Dafny {
           ServerUtils.checkArgs(command, 0);
           var payload = ReadPayload();
           VerificationTask.ReadTask(payload).Expand();
+        } else if (verb == "tacticsExpandAll") {
+          ServerUtils.checkArgs(command, 0);
+          var payload = ReadPayload();
+          VerificationTask.ReadTask(payload).ExpandAll();
         } else if (verb == "deadAnnotationCheck") {
           ServerUtils.checkArgs(command, 0);
           var payload = ReadPayload();

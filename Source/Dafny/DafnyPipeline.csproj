@@ -168,6 +168,7 @@
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
     </Reference>
     <Reference Include="System.Numerics" />
+    <Reference Include="System.Runtime.Serialization" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Cloner.cs" />
@@ -201,7 +202,7 @@
     <Compile Include="Tacny\Language\OrChoiceStmt.cs" />
     <Compile Include="Tacny\ProofState.cs" />
     <Compile Include="Tacny\TacnyInterpreter.cs" />
-    <Compile Include="Tacny\TacticReplacer.cs" />
+    <Compile Include="Tacny\TacticExpander.cs" />
     <Compile Include="Tacny\tcce.cs" />
     <Compile Include="Tacny\TokenGenerator.cs" />
     <Compile Include="Tacny\TokenTracer.cs" />
