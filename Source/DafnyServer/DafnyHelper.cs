@@ -109,22 +109,28 @@ namespace Microsoft.Dafny {
     }
 
     public void CheckForDeadAnnotations() {
-      if (Parse() && Resolve()) {
+      if (Parse()) {
         var stopper = new Dare.StopChecker();
         var dare = new Dare.Dare(stopper);
-        var results = dare.ProcessProgram(dafnyProgram);
+        List<DareResult> results;
+        try {
+          results = dare.ProcessProgram(dafnyProgram);
+        } catch (Dare.NotValidException) {
+          Console.WriteLine("DEAD_ANNOTATIONS {\"error\": \"NotValidException: Failed to Resolve, Translate & Validate the Program\"} DEAD_ANNOTATIONS_END");
+          return;
+        }
         if(results.Count == 0) {
           Console.WriteLine("DEAD_ANNOTATIONS [] DEAD_ANNOTATIONS_END");
         } else {
           var output = "DEAD_ANNOTATIONS [";
           for(var i = 0; i < results.Count - 1; i++) {
-            output += results[i].asJson() + ",";
+            output += results[i].ToSafeJson() + ",";
           }
-          output += results[results.Count-1].asJson() + "] DEAD_ANNOTATIONS_END";
+          output += results[results.Count-1].ToSafeJson() + "] DEAD_ANNOTATIONS_END";
           Console.WriteLine(output);
         }
       } else {
-        Console.WriteLine("DEAD_ANNOTATIONS [] DEAD_ANNOTATIONS_END");
+        Console.WriteLine("DEAD_ANNOTATIONS {\"error\": \"ParseError: Couldn't Parse the Program\"} DEAD_ANNOTATIONS_END");
       };
     }
 

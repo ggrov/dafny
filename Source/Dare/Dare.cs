@@ -576,16 +576,15 @@ namespace Dare {
       }
       return sr.ToString();
     }
-
-    public string asJson() {
-      // Convert to base64 to avoid isues with quotes
+    
+    public string ToSafeJson() {
+      // base64 encode replacment to make printing text in DafnyServer safe
       var plainTextBytes = System.Text.Encoding.UTF8.GetBytes(PrintedReplacement());
       var replacementText = System.Convert.ToBase64String(plainTextBytes);
-      return "{\"pos\":"+ this.StartTok.pos+ "," +
-        "\"col\":"+ this.StartTok.col+ "," +
+      return "{\"col\":"+ this.StartTok.col+ "," +
         "\"line\":"+ this.StartTok.line+ "," +
-        "\"Length\":"+this.Length+"," +
-        "\"Replacement64\":\""+ replacementText + "\"}";
+        "\"length\":"+this.Length+"," +
+        "\"replacement\":\""+ replacementText + "\"}";
     }
   }
 
